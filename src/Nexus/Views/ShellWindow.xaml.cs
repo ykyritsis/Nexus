@@ -252,6 +252,7 @@ public sealed partial class ShellWindow : Window
         {
             AppWindow.Hide();
             _warming = false;
+            PrepareBackdrop();
             Log.Info("overlay warmed up");
         });
     }
@@ -360,6 +361,24 @@ public sealed partial class ShellWindow : Window
     HdrBackdrop? _hdr;
     int _hdrFailures;
 
+    /// <summary>The SDR white level of the overlay's display when it's in HDR mode, else 0.</summary>
+    double SdrWhiteNits()
+    {
+        try
+        {
+            var info = Microsoft.Graphics.Display.DisplayInformation.CreateForWindowId(AppWindow.Id).GetAdvancedColorInfo();
+            return info.CurrentAdvancedColorKind == Microsoft.Graphics.Display.DisplayAdvancedColorKind.HighDynamicRange ? info.SdrWhiteLevelInNits : 0;
+        }
+        catch { return 0; }
+    }
+
+    /// <summary>Sets up the GPU device and effects ahead of time, so the first open doesn't pay for it.</summary>
+    void PrepareBackdrop()
+    {
+        try { if (HdrBackdrop.Supported) _hdr ??= new HdrBackdrop(Backdrop); }
+        catch (Exception ex) { Log.Warn($"HDR backdrop unavailable: {ex.Message}"); _hdrFailures = 3; }
+    }
+
     /// <summary>
     /// Grabs and blurs the screen behind the overlay, before the overlay is shown. HDR-aware capture
     /// first (keeps HDR brightness); GDI (8-bit SDR) if that isn't available or fails.
@@ -373,7 +392,7 @@ public sealed partial class ShellWindow : Window
             try
             {
                 _hdr ??= new HdrBackdrop(Backdrop);
-                hdr = await _hdr.CaptureAsync(Native.MonitorHandle(_previousForeground), TimeSpan.FromMilliseconds(250));
+                hdr = await _hdr.CaptureAsync(Native.MonitorHandle(_previousForeground), SdrWhiteNits(), TimeSpan.FromMilliseconds(250));
             }
             catch (Exception ex) { Log.Warn($"HDR backdrop unavailable: {ex.Message}"); }
             _hdrFailures = hdr ? 0 : _hdrFailures + 1;

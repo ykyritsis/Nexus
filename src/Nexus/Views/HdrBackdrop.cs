@@ -15,10 +15,13 @@ using WinRT;
 namespace Nexus.Views;
 
 /// <summary>
-/// The still, blurred frame behind the overlay, in HDR when the screen is HDR. One frame of the
-/// monitor is captured with Windows.Graphics.Capture in 16-bit float (scRGB, so highlights above
-/// SDR white survive), blurred on the GPU with Win2D, and drawn into a float composition surface
-/// that Windows shows at the game's own brightness. It costs nothing while you navigate.
+/// The still, blurred frame behind the overlay, correct on HDR screens. One frame of the monitor is
+/// captured with Windows.Graphics.Capture in 16-bit float (scRGB: absolute brightness, 1.0 = 80 nits),
+/// scaled so the user's SDR white becomes 1.0, blurred on the GPU with Win2D in linear light, then
+/// encoded to sRGB in an ordinary 8-bit surface. Windows shows 8-bit surfaces at the SDR white
+/// level, so the frame matches the game's brightness (a float surface was boosted a second time and
+/// came out blown out). Only highlights brighter than SDR white are clipped, which a blur hides.
+/// It costs nothing while you navigate.
 /// </summary>
 public sealed class HdrBackdrop : IDisposable
 {
@@ -30,7 +33,7 @@ public sealed class HdrBackdrop : IDisposable
     }
 
     static readonly Guid CaptureItemIid = new("79C3F95B-31F7-4EC2-A464-632EF5D30760");
-    const float BlurAmount = 9f; // in captured pixels at half size: a light frost
+    const float BlurAmount = 2.25f; // standard deviation at half size: a light frost
 
     readonly CanvasDevice _device;
     readonly CompositionGraphicsDevice _graphics;
@@ -50,14 +53,18 @@ public sealed class HdrBackdrop : IDisposable
     public static bool Supported => GraphicsCaptureSession.IsSupported();
 
     /// <summary>Captures and blurs the monitor. False if anything fails (the caller falls back to GDI).</summary>
-    public async Task<bool> CaptureAsync(IntPtr monitor, TimeSpan timeout)
+    /// <param name="sdrWhiteNits">The display's SDR white level in HDR mode, or 0 for an SDR display.</param>
+    public async Task<bool> CaptureAsync(IntPtr monitor, double sdrWhiteNits, TimeSpan timeout)
     {
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        long itemMs = 0, frameMs = 0;
         Direct3D11CaptureFramePool? pool = null;
         GraphicsCaptureSession? session = null;
         try
         {
             var item = ItemForMonitor(monitor);
             if (item is null) return false;
+            itemMs = clock.ElapsedMilliseconds;
             var size = item.Size;
             pool = Direct3D11CaptureFramePool.CreateFreeThreaded(_device, DirectXPixelFormat.R16G16B16A16Float, 1, size);
             session = pool.CreateCaptureSession(item);
@@ -71,24 +78,20 @@ public sealed class HdrBackdrop : IDisposable
             if (done != arrived.Task) { Log.Warn("HDR capture timed out"); return false; }
 
             using var frame = await arrived.Task;
+            frameMs = clock.ElapsedMilliseconds;
             using var bitmap = CanvasBitmap.CreateFromDirect3D11Surface(_device, frame.Surface);
             // Half resolution is plenty for a blur and quarters the work.
             int w = Math.Max(1, size.Width / 2), h = Math.Max(1, size.Height / 2);
             if (_surface is null || _surface.SizeInt32.Width != w || _surface.SizeInt32.Height != h)
             {
                 _surface?.Dispose();
-                _surface = _graphics.CreateDrawingSurface2(new SizeInt32(w, h), Microsoft.Graphics.DirectX.DirectXPixelFormat.R16G16B16A16Float, Microsoft.Graphics.DirectX.DirectXAlphaMode.Premultiplied);
+                _surface = _graphics.CreateDrawingSurface2(new SizeInt32(w, h), Microsoft.Graphics.DirectX.DirectXPixelFormat.B8G8R8A8UIntNormalized, Microsoft.Graphics.DirectX.DirectXAlphaMode.Premultiplied);
                 _visual.Brush = _visual.Compositor.CreateSurfaceBrush(_surface);
                 ((CompositionSurfaceBrush)_visual.Brush).Stretch = CompositionStretch.Fill;
             }
-            var scaled = new ScaleEffect { Source = bitmap, Scale = new Vector2(0.5f), InterpolationMode = CanvasImageInterpolation.Linear };
-            using var blur = new GaussianBlurEffect { Source = scaled, BlurAmount = BlurAmount, BorderMode = EffectBorderMode.Hard, Optimization = EffectOptimization.Speed };
             using (var ds = CanvasComposition.CreateDrawingSession(_surface))
-            {
-                ds.Clear(Windows.UI.Color.FromArgb(255, 0, 0, 0));
-                ds.DrawImage(blur);
-            }
-            scaled.Dispose();
+                Render(ds, bitmap, ExposureFor(sdrWhiteNits), 0.5f);
+            Log.Info($"HDR backdrop: item {itemMs} ms, first frame {frameMs} ms, total {clock.ElapsedMilliseconds} ms (SDR white {sdrWhiteNits:0} nits)");
             _visual.IsVisible = true;
             return true;
         }
@@ -101,6 +104,49 @@ public sealed class HdrBackdrop : IDisposable
         {
             session?.Dispose();
             pool?.Dispose();
+        }
+    }
+
+    /// <summary>scRGB 1.0 is 80 nits; on an HDR display SDR white sits at sdrWhiteNits, so divide by that.</summary>
+    static float ExposureFor(double sdrWhiteNits) => sdrWhiteNits > 80 ? (float)(80 / sdrWhiteNits) : 1f;
+
+    /// <summary>Scale, level to SDR white, blur in linear light, encode to sRGB, draw.</summary>
+    static void Render(CanvasDrawingSession ds, ICanvasImage source, float exposure, float scale)
+    {
+        using var scaled = new ScaleEffect { Source = source, Scale = new Vector2(scale), InterpolationMode = CanvasImageInterpolation.Linear };
+        using var levelled = new ColorMatrixEffect
+        {
+            Source = scaled,
+            ColorMatrix = new Matrix5x4 { M11 = exposure, M22 = exposure, M33 = exposure, M44 = 1 },
+            ClampOutput = false,
+        };
+        using var blur = new GaussianBlurEffect { Source = levelled, BlurAmount = BlurAmount, BorderMode = EffectBorderMode.Hard, Optimization = EffectOptimization.Speed };
+        using var encoded = new ColorManagementEffect
+        {
+            Source = blur,
+            SourceColorProfile = new ColorManagementProfile(CanvasColorSpace.ScRgb),
+            OutputColorProfile = new ColorManagementProfile(CanvasColorSpace.Srgb),
+        };
+        ds.EffectBufferPrecision = CanvasBufferPrecision.Precision16Float; // keep HDR values until the end
+        ds.Clear(Windows.UI.Color.FromArgb(255, 0, 0, 0));
+        ds.DrawImage(encoded);
+    }
+
+    /// <summary>
+    /// Nexus.exe --selftest-backdrop: runs the pipeline on known scRGB values, off screen, and logs
+    /// the 8-bit result (SDR white should come out 255, mid grey about 124).
+    /// </summary>
+    public static void SelfTest()
+    {
+        var device = CanvasDevice.GetSharedDevice();
+        foreach (var (label, value, white) in new[] { ("SDR white, HDR 240 nits", 3f, 240.0), ("mid grey, HDR 240 nits", 0.6f, 240.0), ("highlight, HDR 240 nits", 10f, 240.0), ("SDR white, SDR display", 1f, 0.0) })
+        {
+            using var src = new CanvasRenderTarget(device, 32, 32, 96, DirectXPixelFormat.R16G16B16A16Float, CanvasAlphaMode.Premultiplied);
+            using (var ds = src.CreateDrawingSession()) ds.Clear(new Vector4(value, value, value, 1));
+            using var dst = new CanvasRenderTarget(device, 32, 32, 96, DirectXPixelFormat.B8G8R8A8UIntNormalized, CanvasAlphaMode.Premultiplied);
+            using (var ds = dst.CreateDrawingSession()) Render(ds, src, ExposureFor(white), 1f);
+            var px = dst.GetPixelBytes(16, 16, 1, 1);
+            Log.Info($"SELFTEST {label}: in {value} -> out B{px[0]} G{px[1]} R{px[2]} A{px[3]}");
         }
     }
 

@@ -13,6 +13,12 @@ public static class Program
     [STAThread]
     public static int Main(string[] args)
     {
+        // Diagnostics that never touch the running copy or the screen.
+        if (args.Contains("--selftest-backdrop", StringComparer.OrdinalIgnoreCase))
+        {
+            try { Views.HdrBackdrop.SelfTest(); } catch (Exception ex) { Log.Error("selftest", ex); Log.Warn(ex.ToString()); }
+            return 0;
+        }
         if (!SingleInstance.TryBecomePrimary(args))
             return 0;
         // "--quit" with nothing running has nothing to close; don't start a copy just to open it.
