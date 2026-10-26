@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window
+    x:Class="Nexus.Views.ShellWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Nexus">
+
+    <!-- The window covers the whole monitor; its backdrop blurs the game behind it. -->
+    <Grid x:Name="Root">
+        <Grid.Resources>
+            <Storyboard x:Name="ShowStory">
+                <DoubleAnimation Storyboard.TargetName="PanelTransform" Storyboard.TargetProperty="ScaleX"
+                                 From="0.94" To="1" Duration="0:0:0.28">
+                    <DoubleAnimation.EasingFunction><BackEase EasingMode="EaseOut" Amplitude="0.25" /></DoubleAnimation.EasingFunction>
+                </DoubleAnimation>
+                <DoubleAnimation Storyboard.TargetName="PanelTransform" Storyboard.TargetProperty="ScaleY"
+                                 From="0.94" To="1" Duration="0:0:0.28">
+                    <DoubleAnimation.EasingFunction><BackEase EasingMode="EaseOut" Amplitude="0.25" /></DoubleAnimation.EasingFunction>
+                </DoubleAnimation>
+                <DoubleAnimation Storyboard.TargetName="PanelTransform" Storyboard.TargetProperty="TranslateY"
+                                 From="24" To="0" Duration="0:0:0.28">
+                    <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut" /></DoubleAnimation.EasingFunction>
+                </DoubleAnimation>
+                <DoubleAnimation Storyboard.TargetName="Panel" Storyboard.TargetProperty="Opacity"
+                                 From="0" To="1" Duration="0:0:0.18" />
+                <DoubleAnimation Storyboard.TargetName="Scrim" Storyboard.TargetProperty="Opacity"
+                                 From="0" To="1" Duration="0:0:0.22" />
+            </Storyboard>
+        </Grid.Resources>
+
+        <!-- Darkening vignette over the blur; clicking it closes the overlay -->
+        <Rectangle x:Name="Scrim" PointerPressed="Scrim_PointerPressed">
+            <Rectangle.Fill>
+                <RadialGradientBrush Center="0.5,0.48" GradientOrigin="0.5,0.48" RadiusX="0.8" RadiusY="0.8">
+                    <GradientStop Color="#4D000000" Offset="0" />
+                    <GradientStop Color="#B3000000" Offset="1" />
+                </RadialGradientBrush>
+            </Rectangle.Fill>
+        </Rectangle>
+
+        <Grid x:Name="Panel" HorizontalAlignment="Center" VerticalAlignment="Center" RowSpacing="18"
+              RenderTransformOrigin="0.5,0.5">
+            <Grid.RenderTransform>
+                <CompositeTransform x:Name="PanelTransform" />
+            </Grid.RenderTransform>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!-- Top bar: clock | tab pill | controller battery -->
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Border Style="{StaticResource GlassSurface}" CornerRadius="24" Padding="18,8"
+                        HorizontalAlignment="Left" VerticalAlignment="Center">
+                    <TextBlock x:Name="ClockText" FontSize="20" FontWeight="SemiBold" />
+                </Border>
+
+                <Border Grid.Column="1" Style="{StaticResource GlassSurface}" CornerRadius="38" Padding="6">
+                    <Grid>
+                        <Border x:Name="Lens" Width="92" Height="62" CornerRadius="31" HorizontalAlignment="Left"
+                                Background="{StaticResource LensFill}" BorderBrush="{StaticResource LensRim}" BorderThickness="1">
+                            <Border.RenderTransform>
+                                <TranslateTransform x:Name="LensSlide" />
+                            </Border.RenderTransform>
+                        </Border>
+                        <StackPanel x:Name="TabStrip" Orientation="Horizontal" Spacing="4">
+                            <Button x:Name="TabHome" Tag="home" Style="{StaticResource TabButtonStyle}" Click="Tab_Click">
+                                <StackPanel Spacing="3"><FontIcon Glyph="&#xE80F;" FontSize="20" /><TextBlock Text="Home" FontSize="12" HorizontalAlignment="Center" /></StackPanel>
+                            </Button>
+                            <Button x:Name="TabSettings" Tag="settings" Style="{StaticResource TabButtonStyle}" Click="Tab_Click">
+                                <StackPanel Spacing="3"><FontIcon Glyph="&#xE713;" FontSize="20" /><TextBlock Text="Settings" FontSize="12" HorizontalAlignment="Center" /></StackPanel>
+                            </Button>
+                            <Button x:Name="TabAudio" Tag="audio" Style="{StaticResource TabButtonStyle}" Click="Tab_Click">
+                                <StackPanel Spacing="3"><FontIcon Glyph="&#xE767;" FontSize="20" /><TextBlock Text="Audio" FontSize="12" HorizontalAlignment="Center" /></StackPanel>
+                            </Button>
+                            <Button x:Name="TabSocial" Tag="social" Style="{StaticResource TabButtonStyle}" Click="Tab_Click">
+                                <StackPanel Spacing="3"><FontIcon Glyph="&#xE716;" FontSize="20" /><TextBlock Text="Social" FontSize="12" HorizontalAlignment="Center" /></StackPanel>
+                            </Button>
+                            <Button x:Name="TabMulti" Tag="multitask" Style="{StaticResource TabButtonStyle}" Click="Tab_Click">
+                                <StackPanel Spacing="3"><FontIcon Glyph="&#xE7C4;" FontSize="20" /><TextBlock Text="Apps" FontSize="12" HorizontalAlignment="Center" /></StackPanel>
+                            </Button>
+                            <Button x:Name="TabWidgets" Tag="widgets" Style="{StaticResource TabButtonStyle}" Click="Tab_Click">
+                                <StackPanel Spacing="3"><FontIcon Glyph="&#xE8A9;" FontSize="20" /><TextBlock Text="Widgets" FontSize="12" HorizontalAlignment="Center" /></StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <Border x:Name="BatteryChip" Grid.Column="2" Style="{StaticResource GlassSurface}" CornerRadius="24" Padding="16,8"
+                        HorizontalAlignment="Right" VerticalAlignment="Center" Visibility="Collapsed">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon Glyph="&#xE7FC;" FontSize="18" />
+                        <TextBlock x:Name="BatteryText" FontSize="15" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- Content glass -->
+            <Border x:Name="ContentGlass" Grid.Row="1" Background="{StaticResource GlassPanelFill}"
+                    BorderBrush="{StaticResource GlassRim}" BorderThickness="1" CornerRadius="40" Padding="28,22,28,26">
+                <Grid RowSpacing="16">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <Button x:Name="BackButton" Style="{StaticResource IconButtonStyle}" Width="40" Height="40"
+                                Background="{StaticResource GlassFill}" Visibility="Collapsed" Click="Back_Click">
+                            <FontIcon Glyph="&#xE72B;" FontSize="16" />
+                        </Button>
+                        <TextBlock x:Name="TitleText" FontSize="30" FontWeight="SemiBold" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <ContentControl x:Name="ContentHost" Grid.Row="1" IsTabStop="False"
+                                    HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
+                        <ContentControl.ContentTransitions>
+                            <TransitionCollection>
+                                <ContentThemeTransition HorizontalOffset="40" VerticalOffset="0" />
+                            </TransitionCollection>
+                        </ContentControl.ContentTransitions>
+                    </ContentControl>
+                </Grid>
+            </Border>
+
+            <!-- Controller hints -->
+            <Border Grid.Row="2" Style="{StaticResource GlassSurface}" CornerRadius="22" Padding="18,8" HorizontalAlignment="Center">
+                <StackPanel Orientation="Horizontal" Spacing="22">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <Border Style="{StaticResource HintKeyStyle}"><TextBlock Text="LB" FontSize="12" FontWeight="SemiBold" /></Border>
+                        <Border Style="{StaticResource HintKeyStyle}"><TextBlock Text="RB" FontSize="12" FontWeight="SemiBold" /></Border>
+                        <TextBlock Text="Tabs" FontSize="14" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <Border Style="{StaticResource HintKeyStyle}" Background="#593FB950"><TextBlock Text="A" FontSize="12" FontWeight="SemiBold" /></Border>
+                        <TextBlock Text="Select" FontSize="14" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <Border Style="{StaticResource HintKeyStyle}" Background="#59E5484D"><TextBlock Text="B" FontSize="12" FontWeight="SemiBold" /></Border>
+                        <TextBlock Text="Back" FontSize="14" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <StackPanel x:Name="YHint" Orientation="Horizontal" Spacing="6" Visibility="Collapsed">
+                        <Border Style="{StaticResource HintKeyStyle}" Background="#59E5B91E"><TextBlock Text="Y" FontSize="12" FontWeight="SemiBold" /></Border>
+                        <TextBlock x:Name="YHintText" FontSize="14" VerticalAlignment="Center" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>

@@ -1,0 +1,201 @@
+using System.Diagnostics;
+using System.Runtime.InteropServices;
+using Nexus.Interop;
+using Nexus.Services;
+
+namespace Nexus.Input;
+
+[Flags]
+public enum Pad : ushort
+{
+    None = 0,
+    Up = 0x0001, Down = 0x0002, Left = 0x0004, Right = 0x0008,
+    Start = 0x0010, Back = 0x0020, LeftStick = 0x0040, RightStick = 0x0080,
+    LB = 0x0100, RB = 0x0200, Guide = 0x0400,
+    A = 0x1000, B = 0x2000, X = 0x4000, Y = 0x8000,
+}
+
+/// <summary>
+/// Reads Xbox controllers through XInput, including the Guide button, which only the hidden
+/// XInputGetStateEx (xinput1_4.dll ordinal 100) reports. Runs on its own thread at ~125 Hz while a
+/// controller is connected and checks for new controllers once a second otherwise.
+///
+/// Events fire on that thread; subscribers marshal to the UI themselves.
+/// </summary>
+public sealed class GamepadService : IDisposable
+{
+    [StructLayout(LayoutKind.Sequential)]
+    struct XInputState
+    {
+        public uint PacketNumber;
+        public ushort Buttons;
+        public byte LeftTrigger, RightTrigger;
+        public short LX, LY, RX, RY;
+        public uint Reserved; // the Ex version writes one extra field on some systems
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    struct XInputBattery { public byte Type, Level; }
+
+    [DllImport("xinput1_4.dll", EntryPoint = "#100")] static extern uint XInputGetStateEx(uint user, out XInputState state);
+    [DllImport("xinput1_4.dll")] static extern uint XInputGetBatteryInformation(uint user, byte devType, out XInputBattery info);
+
+    const int HoldMs = 700;          // Guide held this long = "hold" gesture instead of a press
+    const int RepeatDelayMs = 380, RepeatEveryMs = 110;
+    const short StickNav = 19000;    // stick past ~58% counts as a d-pad direction for navigation
+    const Pad NavButtons = Pad.Up | Pad.Down | Pad.Left | Pad.Right | Pad.A | Pad.B | Pad.X | Pad.Y |
+                           Pad.LB | Pad.RB | Pad.Start | Pad.Back;
+    const Pad Repeating = Pad.Up | Pad.Down | Pad.Left | Pad.Right;
+
+    readonly Thread _thread;
+    volatile bool _running = true;
+    readonly bool[] _connected = new bool[4];
+    readonly long[] _nextProbe = new long[4];
+    readonly Pad[] _prev = new Pad[4];
+    readonly long[] _guideDownAt = new long[4];
+    readonly bool[] _guideConsumed = new bool[4];
+    readonly long[] _repeatAt = new long[4];
+    readonly Stopwatch _clock = Stopwatch.StartNew();
+
+    /// <summary>Guide pressed and released quickly (no other button touched meanwhile).</summary>
+    public event Action<int, long>? GuidePressed;
+    /// <summary>Guide held down for <see cref="HoldMs"/>.</summary>
+    public event Action<int>? GuideHeld;
+    /// <summary>A navigation button went down (or auto-repeated) while <see cref="Navigating"/> is on.</summary>
+    public event Action<Pad>? NavButton;
+    public event Action<int, bool>? ConnectionChanged;
+
+    /// <summary>On while the overlay is open: buttons are reported as <see cref="NavButton"/>.</summary>
+    public bool Navigating { get; set; }
+    /// <summary>Controller drives the mouse while the overlay is closed.</summary>
+    public bool CursorMode { get; set; }
+    public int LastActiveSlot { get; private set; } = -1;
+    public bool AnyConnected => _connected.Any(c => c);
+    public long Now => _clock.ElapsedMilliseconds;
+
+    public GamepadService()
+    {
+        _thread = new Thread(Loop) { IsBackground = true, Name = "Nexus gamepad", Priority = ThreadPriority.AboveNormal };
+        _thread.Start();
+    }
+
+    /// <summary>Battery of a controller: (wired, level 0-3), or null if unknown/disconnected.</summary>
+    public (bool wired, int level)? Battery(int slot)
+    {
+        if (slot < 0 || slot > 3 || !_connected[slot]) return null;
+        try
+        {
+            if (XInputGetBatteryInformation((uint)slot, 0, out var b) != 0 || b.Type == 0 || b.Type == 0xFF) return null;
+            return (b.Type == 1, b.Level);
+        }
+        catch { return null; }
+    }
+
+    void Loop()
+    {
+        Log.Info("gamepad thread started");
+        while (_running)
+        {
+            long now = _clock.ElapsedMilliseconds;
+            for (int slot = 0; slot < 4; slot++)
+            {
+                if (!_connected[slot] && now < _nextProbe[slot]) continue;
+                uint r;
+                XInputState s;
+                try { r = XInputGetStateEx((uint)slot, out s); }
+                catch (Exception ex) { Log.Error("XInput unavailable", ex); _running = false; return; }
+
+                if (r != 0)
+                {
+                    if (_connected[slot]) { _connected[slot] = false; ConnectionChanged?.Invoke(slot, false); }
+                    _nextProbe[slot] = now + 1000; // empty slots are slow to query; check once a second
+                    _prev[slot] = Pad.None;
+                    continue;
+                }
+                if (!_connected[slot]) { _connected[slot] = true; ConnectionChanged?.Invoke(slot, true); Log.Info($"controller {slot + 1} connected"); }
+                Process(slot, s, now);
+            }
+            Thread.Sleep(AnyConnected ? 8 : 250);
+        }
+    }
+
+    void Process(int slot, XInputState s, long now)
+    {
+        var raw = (Pad)s.Buttons;
+        var pad = raw;
+        if (Navigating) // left stick doubles as a d-pad in menus
+        {
+            if (s.LY > StickNav) pad |= Pad.Up; else if (s.LY < -StickNav) pad |= Pad.Down;
+            if (s.LX > StickNav) pad |= Pad.Right; else if (s.LX < -StickNav) pad |= Pad.Left;
+        }
+        var prev = _prev[slot];
+        var down = pad & ~prev;
+        if (down != Pad.None) LastActiveSlot = slot;
+
+        // Guide: press / hold, cancelled if it's used as part of a chord.
+        if ((down & Pad.Guide) != 0) { _guideDownAt[slot] = now; _guideConsumed[slot] = false; }
+        if ((pad & Pad.Guide) != 0)
+        {
+            if ((down & ~Pad.Guide) != Pad.None) _guideConsumed[slot] = true;
+            if (!_guideConsumed[slot] && now - _guideDownAt[slot] >= HoldMs)
+            {
+                _guideConsumed[slot] = true;
+                GuideHeld?.Invoke(slot);
+            }
+        }
+        else if ((prev & Pad.Guide) != 0 && !_guideConsumed[slot])
+        {
+            GuidePressed?.Invoke(slot, _clock.ElapsedMilliseconds);
+        }
+
+        if (Navigating && (pad & Pad.Guide) == 0)
+        {
+            foreach (Pad b in Enum.GetValues<Pad>())
+            {
+                if (b == Pad.None || (NavButtons & b) == 0) continue;
+                if ((down & b) != 0)
+                {
+                    NavButton?.Invoke(b);
+                    if ((Repeating & b) != 0) _repeatAt[slot] = now + RepeatDelayMs;
+                }
+            }
+            var held = pad & prev & Repeating;
+            if (held != Pad.None && now >= _repeatAt[slot])
+            {
+                foreach (Pad b in new[] { Pad.Up, Pad.Down, Pad.Left, Pad.Right })
+                    if ((held & b) != 0) NavButton?.Invoke(b);
+                _repeatAt[slot] = now + RepeatEveryMs;
+            }
+        }
+        else if (CursorMode)
+        {
+            Cursor(s, raw, prev);
+        }
+        _prev[slot] = pad;
+    }
+
+    // Gamepad cursor: left stick moves, A left click, B right click, right stick scrolls.
+    void Cursor(XInputState s, Pad raw, Pad prev)
+    {
+        static int Curve(short v)
+        {
+            const int dead = 7500;
+            int a = Math.Abs((int)v);
+            if (a < dead) return 0;
+            double t = (a - dead) / (32767.0 - dead);
+            return (int)(Math.Sign(v) * (t * t * 22 + t * 2));
+        }
+        int dx = Curve(s.LX), dy = -Curve(s.LY);
+        if (dx != 0 || dy != 0) Native.mouse_event(Native.MOUSEEVENTF_MOVE, dx, dy, 0, UIntPtr.Zero);
+
+        var down = raw & ~prev;
+        var up = prev & ~raw;
+        if ((down & Pad.A) != 0) Native.mouse_event(Native.MOUSEEVENTF_LEFTDOWN, 0, 0, 0, UIntPtr.Zero);
+        if ((up & Pad.A) != 0) Native.mouse_event(Native.MOUSEEVENTF_LEFTUP, 0, 0, 0, UIntPtr.Zero);
+        if ((down & Pad.B) != 0) Native.mouse_event(Native.MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, UIntPtr.Zero);
+        if ((up & Pad.B) != 0) Native.mouse_event(Native.MOUSEEVENTF_RIGHTUP, 0, 0, 0, UIntPtr.Zero);
+        if (Math.Abs((int)s.RY) > 9000) Native.mouse_event(Native.MOUSEEVENTF_WHEEL, 0, 0, s.RY / 600, UIntPtr.Zero);
+    }
+
+    public void Dispose() => _running = false;
+}

@@ -1,0 +1,305 @@
+using Microsoft.UI.Dispatching;
+using Microsoft.UI.Windowing;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media.Animation;
+using Nexus.Input;
+using Nexus.Interop;
+using Nexus.Services;
+using Windows.Graphics;
+using WinRT.Interop;
+
+namespace Nexus.Views;
+
+/// <summary>
+/// The overlay. One borderless, always-on-top window that covers the monitor the game is on: its
+/// backdrop blurs the game, and a centred liquid-glass panel holds the tabs. It is created once at
+/// startup and kept hidden, so pressing Guide only has to show it.
+/// </summary>
+public sealed partial class ShellWindow : Window
+{
+    public static readonly string[] TabOrder = { "home", "settings", "audio", "social", "multitask", "widgets" };
+
+    readonly App _app;
+    readonly Dictionary<string, Button> _tabButtons;
+    readonly Dictionary<string, FrameworkElement> _views = new();
+    readonly Stack<FrameworkElement> _subPages = new();
+    readonly DispatcherQueueTimer _clock;
+
+    string _tab = "home";
+    bool _visible, _warming;
+    long _pressedAt = -1, _shownAt;
+    IntPtr _previousForeground;
+
+    public IntPtr Hwnd { get; }
+    public PadNavigator Navigator { get; }
+    public bool IsOpen => _visible;
+    public UIElement NavRoot => Panel;
+
+    public ShellWindow(App app)
+    {
+        _app = app;
+        InitializeComponent();
+        Hwnd = WindowNative.GetWindowHandle(this);
+        Navigator = new PadNavigator(this);
+
+        _tabButtons = new()
+        {
+            ["home"] = TabHome, ["settings"] = TabSettings, ["audio"] = TabAudio,
+            ["social"] = TabSocial, ["multitask"] = TabMulti, ["widgets"] = TabWidgets,
+        };
+
+        ExtendsContentIntoTitleBar = true;
+        SystemBackdrop = new GlassBackdrop();
+        if (AppWindow.Presenter is OverlappedPresenter p)
+        {
+            p.IsAlwaysOnTop = true;
+            p.IsResizable = false;
+            p.IsMaximizable = false;
+            p.IsMinimizable = false;
+            p.SetBorderAndTitleBar(false, false);
+        }
+        AppWindow.IsShownInSwitchers = false;
+        AppWindow.Closing += (_, e) => { e.Cancel = true; Hide(); }; // Alt+F4 hides, Quit exits
+
+        Activated += OnActivated;
+        Root.KeyDown += (_, e) =>
+        {
+            if (e.Key == Windows.System.VirtualKey.Escape) { Back(); e.Handled = true; }
+        };
+        _clock = DispatcherQueue.CreateTimer();
+        _clock.Interval = TimeSpan.FromSeconds(15);
+        _clock.Tick += (_, _) => UpdateHeader();
+
+        SelectTab("home", focus: false);
+    }
+
+    // ---------------- show / hide ----------------
+
+    /// <summary>Shows the window once off-screen without activating it, so the first real open is instant.</summary>
+    public void Warm()
+    {
+        _warming = true;
+        AppWindow.MoveAndResize(new RectInt32(-32000, -32000, 1600, 900));
+        AppWindow.Show(false);
+        DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () =>
+        {
+            AppWindow.Hide();
+            _warming = false;
+            Log.Info("overlay warmed up");
+        });
+    }
+
+    public void Toggle(long pressedAt = -1)
+    {
+        if (_visible) Hide();
+        else Show(pressedAt: pressedAt);
+    }
+
+    public void Show(string? tab = null, long pressedAt = -1)
+    {
+        _pressedAt = pressedAt;
+        var fg = Native.GetForegroundWindow();
+        if (fg != Hwnd) _previousForeground = fg;
+
+        Place(_previousForeground);
+        if (tab != null) SelectTab(tab, focus: false);
+        _visible = true;
+        _shownAt = Environment.TickCount64;
+        _app.Gamepad.Navigating = true;
+
+        AppWindow.Show(true);
+        Activate();
+        Native.ForceForeground(Hwnd);
+        ShowStory.Begin();
+        UpdateHeader();
+        _clock.Start();
+        (ContentHost.Content as INexusView)?.OnShown();
+        MoveLens(animate: false);
+        FocusContent();
+        Log.Info($"shown (foreground ok: {Native.GetForegroundWindow() == Hwnd})");
+    }
+
+    public void Hide(bool restoreFocus = true, [System.Runtime.CompilerServices.CallerMemberName] string by = "")
+    {
+        if (!_visible) return;
+        Log.Info($"hidden by {by} (restore focus: {restoreFocus})");
+        _visible = false;
+        _app.Gamepad.Navigating = false;
+        Navigator.Reset();
+        _clock.Stop();
+        (ContentHost.Content as INexusView)?.OnHidden();
+        AppWindow.Hide();
+        // Hand focus straight back to the game.
+        if (restoreFocus && _previousForeground != IntPtr.Zero && Native.IsWindow(_previousForeground))
+            Native.SetForegroundWindow(_previousForeground);
+    }
+
+    void OnActivated(object sender, WindowActivatedEventArgs e)
+    {
+        if (_warming) return;
+        if (e.WindowActivationState == WindowActivationState.Deactivated)
+        {
+            // Another app took focus: get out of the way (ignoring the flicker right after opening).
+            if (_visible && Environment.TickCount64 - _shownAt > 400) Hide(restoreFocus: false);
+            return;
+        }
+        if (_pressedAt >= 0)
+        {
+            Log.Info($"open latency {_app.Gamepad.Now - _pressedAt} ms (Guide press to active window)");
+            _pressedAt = -1;
+        }
+    }
+
+    void Scrim_PointerPressed(object sender, PointerRoutedEventArgs e) => Hide();
+
+    /// <summary>Covers the game's monitor; the panel is sized in screen-independent units to fit it.</summary>
+    void Place(IntPtr near)
+    {
+        var (b, scale) = Native.MonitorOf(near);
+        int w = b.Right - b.Left, h = b.Bottom - b.Top;
+        AppWindow.MoveAndResize(new RectInt32(b.Left, b.Top, w, h));
+
+        double dipW = w / scale, dipH = h / scale;
+        bool compact = _app.Settings.CompactMode;
+        ContentGlass.Width = Math.Min(compact ? 1040 : 1260, dipW * 0.92);
+        ContentGlass.Height = Math.Min(compact ? 470 : 560, dipH - 230);
+    }
+
+    // ---------------- tabs and pages ----------------
+
+    void Tab_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button b && b.Tag is string tab) SelectTab(tab, focus: false);
+    }
+
+    public void SwitchTab(int delta)
+    {
+        int i = Array.IndexOf(TabOrder, _tab);
+        SelectTab(TabOrder[(i + delta + TabOrder.Length) % TabOrder.Length], focus: true);
+    }
+
+    public void SelectTab(string tab, bool focus)
+    {
+        _subPages.Clear();
+        _tab = tab;
+        foreach (var (name, button) in _tabButtons)
+            button.Opacity = name == tab ? 1.0 : 0.62;
+        MoveLens(animate: _visible);
+        SetContent(ViewFor(tab));
+        if (focus) FocusContent();
+    }
+
+    /// <summary>Slides the glass lens under the selected tab.</summary>
+    void MoveLens(bool animate)
+    {
+        var button = _tabButtons[_tab];
+        double x;
+        try { x = button.TransformToVisual(TabStrip).TransformPoint(new Windows.Foundation.Point(0, 0)).X; }
+        catch { x = Array.IndexOf(TabOrder, _tab) * (button.Width + TabStrip.Spacing); }
+        if (!animate)
+        {
+            LensSlide.X = x;
+            return;
+        }
+        var anim = new DoubleAnimation
+        {
+            To = x,
+            Duration = TimeSpan.FromMilliseconds(320),
+            EasingFunction = new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.35 },
+        };
+        Storyboard.SetTarget(anim, LensSlide);
+        Storyboard.SetTargetProperty(anim, "X");
+        var sb = new Storyboard();
+        sb.Children.Add(anim);
+        sb.Begin();
+    }
+
+    FrameworkElement ViewFor(string tab)
+    {
+        if (_views.TryGetValue(tab, out var v)) return v;
+        v = tab switch
+        {
+            "home" => new HomeView(_app, this),
+            "settings" => new SettingsView(_app, this),
+            "audio" => new AudioView(_app),
+            "social" => new PlaceholderView("Social", "",
+                "Friends, chat and parties are planned for Phase 3.",
+                "Steam friends first. Xbox friends need Microsoft sign-in that isn't available to third-party apps."),
+            "multitask" => new PlaceholderView("Apps", "",
+                "Switch between open apps and close games: Phase 2.",
+                "Live window thumbnails, switch, close and force-close."),
+            _ => new PlaceholderView("Widgets", "",
+                "Capture, Display, Performance and more arrive in Phase 2.",
+                "Audio is already its own tab. Capture, Display, Gallery, Performance and Resources are next."),
+        };
+        _views[tab] = v;
+        return v;
+    }
+
+    public void OpenSubPage(FrameworkElement page)
+    {
+        if (ContentHost.Content is FrameworkElement current) _subPages.Push(current);
+        SetContent(page);
+        FocusContent();
+    }
+
+    /// <summary>B button: leave a sub-page, or close the overlay.</summary>
+    public void Back()
+    {
+        if (_subPages.Count > 0)
+        {
+            SetContent(_subPages.Pop());
+            FocusContent();
+        }
+        else Hide();
+    }
+
+    void Back_Click(object sender, RoutedEventArgs e) => Back();
+
+    void SetContent(FrameworkElement page)
+    {
+        (ContentHost.Content as INexusView)?.OnHidden();
+        ContentHost.Content = page;
+        var view = page as INexusView;
+        TitleText.Text = view?.Title ?? "";
+        BackButton.Visibility = _subPages.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        YHint.Visibility = view?.YHint is null ? Visibility.Collapsed : Visibility.Visible;
+        YHintText.Text = view?.YHint ?? "";
+        if (_visible) view?.OnShown();
+    }
+
+    public INexusView? CurrentView => ContentHost.Content as INexusView;
+
+    /// <summary>Puts keyboard focus (with its ring) on the first control of the page.</summary>
+    public void FocusContent()
+    {
+        DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () =>
+        {
+            if (ContentHost.Content is DependencyObject page &&
+                FocusManager.FindFirstFocusableElement(page) is Control c)
+                c.Focus(FocusState.Keyboard);
+            else
+                _tabButtons[_tab].Focus(FocusState.Keyboard);
+        });
+    }
+
+    void UpdateHeader()
+    {
+        ClockText.Text = DateTime.Now.ToString("h:mm");
+        var battery = _app.Gamepad.Battery(_app.Gamepad.LastActiveSlot);
+        if (battery is { } b)
+        {
+            BatteryChip.Visibility = Visibility.Visible;
+            BatteryText.Text = b.wired ? "Wired" : b.level switch { 0 => "Empty", 1 => "Low", 2 => "Medium", _ => "Full" };
+        }
+        else BatteryChip.Visibility = Visibility.Collapsed;
+    }
+
+    /// <summary>Re-applies size settings (compact mode) while open.</summary>
+    public void Relayout()
+    {
+        if (_visible) Place(_previousForeground);
+    }
+}

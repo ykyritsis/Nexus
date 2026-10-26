@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="Nexus.Views.MoreSettingsView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Grid ColumnSpacing="20">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="3*" />
+            <ColumnDefinition Width="2*" />
+        </Grid.ColumnDefinitions>
+
+        <!-- Guide button setup -->
+        <Border Style="{StaticResource GlassSurface}" Padding="24,20">
+            <StackPanel Spacing="18">
+                <TextBlock Text="Guide button" Style="{StaticResource SectionHeaderStyle}" />
+
+                <Grid ColumnSpacing="16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Spacing="3" VerticalAlignment="Center">
+                        <TextBlock Text="Windows Game Bar" Style="{StaticResource RowTitleStyle}" />
+                        <TextBlock x:Name="GameBarStatus" Style="{StaticResource RowSubtitleStyle}" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <Button x:Name="GameBarButton" Grid.Column="1" Style="{StaticResource GlassButtonStyle}" Click="GameBar_Click" />
+                </Grid>
+
+                <Grid ColumnSpacing="16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Spacing="3" VerticalAlignment="Center">
+                        <TextBlock Text="Steam" Style="{StaticResource RowTitleStyle}" />
+                        <TextBlock x:Name="SteamStatus" Style="{StaticResource RowSubtitleStyle}" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <Button Grid.Column="1" Style="{StaticResource GlassButtonStyle}" Click="Steam_Click" Content="Steam settings" />
+                </Grid>
+
+                <TextBlock Style="{StaticResource RowSubtitleStyle}" TextWrapping="Wrap"
+                           Text="Keyboard: Win + Shift + G opens Nexus. A StreamDock key can run Nexus.exe --toggle." />
+            </StackPanel>
+        </Border>
+
+        <!-- App -->
+        <Border Grid.Column="1" Style="{StaticResource GlassSurface}" Padding="24,20">
+            <StackPanel Spacing="14">
+                <TextBlock Text="Nexus" Style="{StaticResource SectionHeaderStyle}" />
+                <Button x:Name="StartupButton" Style="{StaticResource GlassButtonStyle}" HorizontalAlignment="Stretch" Click="Startup_Click" />
+                <Button Style="{StaticResource GlassButtonStyle}" HorizontalAlignment="Stretch" Click="Log_Click" Content="Open log folder" />
+                <Button Style="{StaticResource GlassButtonStyle}" HorizontalAlignment="Stretch" Click="Quit_Click" Content="Quit Nexus" />
+                <TextBlock x:Name="VersionText" Style="{StaticResource RowSubtitleStyle}" HorizontalAlignment="Center" />
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>
