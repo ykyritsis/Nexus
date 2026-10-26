@@ -36,6 +36,8 @@ public sealed partial class ShellWindow : Window
     public IntPtr Hwnd { get; }
     public PadNavigator Navigator { get; }
     public bool IsOpen => _visible;
+    /// <summary>The window that was in front before the overlay opened (usually the game).</summary>
+    public IntPtr PreviousForeground => _previousForeground;
     public UIElement NavRoot => Panel;
 
     public ShellWindow(App app)

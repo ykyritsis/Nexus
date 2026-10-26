@@ -10,19 +10,21 @@ centred, horizontal panel.
 
 | Tab | |
 |---|---|
-| **Home** | Your last four games as square tiles: scenic art with the game's logo centred (Steam, falling back to Xbox/PlayStation/IGN art), Home and Library buttons, launchers |
+| **Home** | While a game runs: **Now playing**, with its art, session and total playtime, Steam achievement progress and what's next, and Resume, Screenshot, Record last 30 s, Steam page and Quit game. Otherwise your last four games as square tiles: scenic art with the game's logo centred (Steam, falling back to Xbox/PlayStation/IGN art), Home and Library buttons, launchers |
 | **Settings** | Control Center tiles: mic, Bluetooth, airplane mode, Xbox mode, screenshot, network, touch keyboard, gamepad cursor, compact mode, Game Bar; volume and mic levels; More settings |
 | **Audio** | Output and input device, mute and level; per-app mixer as channel strips with favourites |
 | **Social** | Steam friends with online and in-game status (no API key needed); chat and profile |
 | **Apps** | Open apps with live thumbnails; switch, close, end a frozen app |
 | **Widgets** | Performance (CPU, GPU, RAM, VRAM), Capture (screenshot, last 30 s, record), Display (borderless sizes and placement, Lossless Scaling, HDR), Gallery, Resources |
 
+In the corner: a controller chip (connected pads, battery, rumble test, pairing) and a power menu (sleep, restart, shut down, lock, sign out, Xbox mode).
+
 A soft glow behind the panel takes its colour from the focused game.
 
 **Lightweight:** idle in the background it uses 0% CPU and about 13 MB of working memory; every
 widget, timer and network lookup runs only while its tab is open.
 
-**Controller:** Guide opens and closes it. Hold Guide jumps to Settings. D-pad or left stick moves,
+**Controller:** Guide opens and closes it (holding Guide is left to Windows task view). D-pad or left stick moves,
 A selects, B goes back, LB/RB switch tabs, Y favourites an app in the mixer.
 **Keyboard:** Win + Shift + G, Esc to go back. **Command line:** `Nexus.exe --toggle`, `--background`, `--quit`.
 

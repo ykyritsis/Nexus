@@ -29,6 +29,9 @@ public sealed partial class HomeView : UserControl, INexusView
     readonly Dictionary<string, Color> _moods = new();
     bool _dockBuilt;
     string _recentKey = "";
+    NowPlayingPanel? _now;
+    string _nowKey = "";
+    DispatcherTimer? _clock;
 
     public string Title => "Home";
 
@@ -41,11 +44,52 @@ public sealed partial class HomeView : UserControl, INexusView
 
     public void OnShown()
     {
+        _ = LoadNowPlayingAsync(_shell.PreviousForeground);
         _ = LoadRecentAsync();
         if (!_dockBuilt) { _dockBuilt = true; _ = LoadDockAsync(); }
     }
 
-    public void OnHidden() { }
+    public void OnHidden() => _clock?.Stop();
+
+    // ---------------- now playing ----------------
+
+    async Task LoadNowPlayingAsync(IntPtr previous)
+    {
+        var found = await Task.Run(() =>
+        {
+            var p = NowPlaying.Detect(previous);
+            if (p is null) return default((PlayingGame, List<Achievement>, int)?);
+            var list = p.AppId is null ? new List<Achievement>() : SteamAchievements.Load(p.AppId);
+            int minutes = p.AppId is null ? 0 : SteamAccount.PlaytimeMinutes(p.AppId) ?? 0;
+            return (p, list, minutes);
+        });
+        if (found is not { } f) { ShowNow(false); _now = null; _nowKey = ""; return; }
+
+        var (playing, achievements, playtime) = f;
+        var key = $"{playing.Game.Key}|{playing.ProcessId}|{achievements.Count(a => a.Unlocked)}";
+        if (key != _nowKey || _now is null)
+        {
+            _nowKey = key;
+            _now = new NowPlayingPanel(_shell, playing, achievements, playtime, () => ShowNow(false));
+            NowHost.Content = _now;
+        }
+        _now.UpdateSession();
+        ShowNow(true);
+        _clock ??= new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
+        _clock.Tick -= Clock_Tick;
+        _clock.Tick += Clock_Tick;
+        _clock.Start();
+    }
+
+    void Clock_Tick(object? sender, object e) => _now?.UpdateSession();
+
+    void ShowNow(bool now)
+    {
+        NowHost.Visibility = now ? Visibility.Visible : Visibility.Collapsed;
+        RecentGrid.Visibility = now ? Visibility.Collapsed : Visibility.Visible;
+        if (now) _now?.FocusFirst();
+        else if (Tiles.Children.FirstOrDefault() is Control first) first.Focus(FocusState.Programmatic);
+    }
 
     void Home_Click(object sender, RoutedEventArgs e) => OpenAndHide(Launch.Resolve(_app.Settings.HomeTarget));
     void Library_Click(object sender, RoutedEventArgs e) => OpenAndHide(Launch.Resolve(_app.Settings.LibraryTarget));
@@ -76,7 +120,7 @@ public sealed partial class HomeView : UserControl, INexusView
             Tiles.Children.Add(tile);
             built.Add((games[i], tile, size));
         }
-        if (games.Count > 0) Focused(games[0], first: true);
+        if (games.Count > 0 && RecentGrid.Visibility == Visibility.Visible) Focused(games[0], first: true);
 
         // Fill in missing art in the background: Steam's official logo and scene first (for the clean
         // centred-logo look), then console art for anything still without a logo.
@@ -183,7 +227,7 @@ public sealed partial class HomeView : UserControl, INexusView
         if (await ArtColor.FromFileAsync(used) is { } mood)
         {
             _moods[game.Key] = mood;
-            if (Tiles.Children.Count > 0 && FocusTitle.Text == game.Name) _shell.SetAmbient(mood);
+            if (Tiles.Children.Count > 0 && FocusTitle.Text == game.Name && RecentGrid.Visibility == Visibility.Visible) _shell.SetAmbient(mood);
         }
         return layers;
     }

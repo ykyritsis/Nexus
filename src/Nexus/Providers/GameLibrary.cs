@@ -54,6 +54,28 @@ public static class GameLibrary
         return games.OrderByDescending(g => g.LastPlayed).Take(count).ToList();
     }
 
+    /// <summary>One installed Steam game and its install folder, or null.</summary>
+    public static (GameEntry game, string installDir)? FindSteam(string appId)
+    {
+        try
+        {
+            var steam = SteamPath();
+            if (steam is null) return null;
+            foreach (var lib in SteamLibraries(steam))
+            {
+                var acf = Path.Combine(lib, "steamapps", $"appmanifest_{appId}.acf");
+                if (!File.Exists(acf)) continue;
+                var text = File.ReadAllText(acf);
+                long.TryParse(Field(text, "LastPlayed"), out long played);
+                var game = new GameEntry($"steam:{appId}", Field(text, "name"), "Steam", $"steam://rungameid/{appId}",
+                    SteamArt(steam, appId), DateTimeOffset.FromUnixTimeSeconds(Math.Max(0, played)).LocalDateTime);
+                return (game, Path.Combine(lib, "steamapps", "common", Field(text, "installdir")));
+            }
+        }
+        catch (Exception ex) { Log.Error($"finding Steam app {appId}", ex); }
+        return null;
+    }
+
     static IEnumerable<string> SteamLibraries(string steam)
     {
         var vdf = Path.Combine(steam, "config", "libraryfolders.vdf");
