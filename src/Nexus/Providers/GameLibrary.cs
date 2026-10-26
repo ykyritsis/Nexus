@@ -6,7 +6,8 @@ namespace Nexus.Providers;
 
 public sealed record GameArt(string? Icon, string? Portrait, string? Hero, string? Logo);
 
-public sealed record GameEntry(string Name, string Source, string LaunchTarget, GameArt Art, DateTime LastPlayed);
+/// <param name="Key">Stable id for caches, e.g. "steam:1985820".</param>
+public sealed record GameEntry(string Key, string Name, string Source, string LaunchTarget, GameArt Art, DateTime LastPlayed);
 
 /// <summary>
 /// Recently played games. Steam keeps a LastPlayed time in each appmanifest and its art in
@@ -44,7 +45,7 @@ public static class GameLibrary
                     string id = Field(text, "appid"), name = Field(text, "name");
                     if (id == "" || name == "" || NotGames.Contains(id)) continue;
                     if (!long.TryParse(Field(text, "LastPlayed"), out long played) || played <= 0) continue;
-                    games.Add(new GameEntry(name, "Steam", $"steam://rungameid/{id}", SteamArt(steam, id),
+                    games.Add(new GameEntry($"steam:{id}", name, "Steam", $"steam://rungameid/{id}", SteamArt(steam, id),
                         DateTimeOffset.FromUnixTimeSeconds(played).LocalDateTime));
                 }
             }

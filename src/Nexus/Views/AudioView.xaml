@@ -4,70 +4,69 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <Grid ColumnSpacing="26">
+    <!-- Like Settings > Sound on the left and the Windows volume mixer on the right -->
+    <Grid ColumnSpacing="28">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="380" />
+            <ColumnDefinition Width="420" />
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
-        <!-- Left: master output and mic, default devices -->
-        <ScrollViewer VerticalScrollBarVisibility="Hidden" Padding="4">
-            <StackPanel Spacing="12">
-                <Grid ColumnSpacing="12" Height="104">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition /><ColumnDefinition />
-                    </Grid.ColumnDefinitions>
-                    <Button x:Name="SpeakerTile" Style="{StaticResource TileStyle}" Padding="16,12" Click="Speaker_Click" />
-                    <Button x:Name="MicTile" Grid.Column="1" Style="{StaticResource TileStyle}" Padding="16,12" Click="Mic_Click" />
-                </Grid>
-
-                <Border Style="{StaticResource GlassSurface}" CornerRadius="26" Padding="18,6">
-                    <Grid ColumnSpacing="14">
+        <StackPanel Spacing="12">
+            <TextBlock Text="Output" Style="{StaticResource SubtitleTextBlockStyle}" />
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel Spacing="10">
+                    <ComboBox x:Name="OutputBox" HorizontalAlignment="Stretch" PlaceholderText="Output device"
+                              DropDownClosed="Output_Closed" AutomationProperties.Name="Output device" />
+                    <Grid ColumnSpacing="10">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="40" />
+                            <ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="36" />
                         </Grid.ColumnDefinitions>
-                        <FontIcon Glyph="&#xE767;" FontSize="18" />
-                        <Slider x:Name="OutSlider" Grid.Column="1" Style="{StaticResource NexusSliderStyle}" Minimum="0" Maximum="100"
-                                SmallChange="2" VerticalAlignment="Center" ValueChanged="Out_Changed" />
-                        <TextBlock x:Name="OutValue" Grid.Column="2" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" TextAlignment="Right" />
+                        <Button x:Name="SpeakerMute" Style="{StaticResource IconButtonStyle}" Click="Speaker_Click" AutomationProperties.Name="Mute speakers">
+                            <FontIcon x:Name="SpeakerGlyph" Glyph="&#xE767;" FontSize="16" />
+                        </Button>
+                        <Slider x:Name="OutSlider" Grid.Column="1" Minimum="0" Maximum="100" SmallChange="2" VerticalAlignment="Center"
+                                ValueChanged="Out_Changed" AutomationProperties.Name="Volume" />
+                        <TextBlock x:Name="OutValue" Grid.Column="2" Style="{StaticResource BodyTextBlockStyle}" VerticalAlignment="Center" TextAlignment="Right" />
                     </Grid>
-                </Border>
-                <Border Style="{StaticResource GlassSurface}" CornerRadius="26" Padding="18,6">
-                    <Grid ColumnSpacing="14">
+                </StackPanel>
+            </Border>
+
+            <TextBlock Text="Input" Style="{StaticResource SubtitleTextBlockStyle}" Margin="0,6,0,0" />
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel Spacing="10">
+                    <ComboBox x:Name="InputBox" HorizontalAlignment="Stretch" PlaceholderText="Input device"
+                              DropDownClosed="Input_Closed" AutomationProperties.Name="Input device" />
+                    <Grid ColumnSpacing="10">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="40" />
+                            <ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="36" />
                         </Grid.ColumnDefinitions>
-                        <FontIcon Glyph="&#xE720;" FontSize="18" />
-                        <Slider x:Name="MicSlider" Grid.Column="1" Style="{StaticResource NexusSliderStyle}" Minimum="0" Maximum="100"
-                                SmallChange="2" VerticalAlignment="Center" ValueChanged="Mic_Changed" />
-                        <TextBlock x:Name="MicValue" Grid.Column="2" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" TextAlignment="Right" />
+                        <Button x:Name="MicMute" Style="{StaticResource IconButtonStyle}" Click="Mic_Click" AutomationProperties.Name="Mute microphone">
+                            <FontIcon x:Name="MicGlyph" Glyph="&#xE720;" FontSize="16" />
+                        </Button>
+                        <Slider x:Name="MicSlider" Grid.Column="1" Minimum="0" Maximum="100" SmallChange="2" VerticalAlignment="Center"
+                                ValueChanged="Mic_Changed" AutomationProperties.Name="Microphone level" />
+                        <TextBlock x:Name="MicValue" Grid.Column="2" Style="{StaticResource BodyTextBlockStyle}" VerticalAlignment="Center" TextAlignment="Right" />
                     </Grid>
-                </Border>
+                </StackPanel>
+            </Border>
 
-                <ComboBox x:Name="OutputBox" Style="{StaticResource NexusComboStyle}" PlaceholderText="Output device" DropDownClosed="Output_Closed" />
-                <ComboBox x:Name="InputBox" Style="{StaticResource NexusComboStyle}" PlaceholderText="Input device" DropDownClosed="Input_Closed" />
-                <Button Style="{StaticResource GlassButtonStyle}" HorizontalAlignment="Stretch" Click="Manage_Click">
-                    <Grid Width="300">
-                        <TextBlock Text="Manage all devices" />
-                        <FontIcon Glyph="&#xE76C;" FontSize="14" HorizontalAlignment="Right" />
-                    </Grid>
-                </Button>
-            </StackPanel>
-        </ScrollViewer>
+            <HyperlinkButton Content="More sound settings" Click="Manage_Click" Margin="-10,0,0,0" />
+        </StackPanel>
 
-        <!-- Right: the mixer as channel strips -->
         <Grid Grid.Column="1" RowSpacing="12">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
-            <TextBlock Text="Volume mixer" Style="{StaticResource SectionHeaderStyle}" Margin="4,0,0,0" />
-            <ScrollViewer x:Name="StripScroller" Grid.Row="1" HorizontalScrollMode="Enabled" HorizontalScrollBarVisibility="Hidden"
-                          VerticalScrollMode="Disabled" VerticalScrollBarVisibility="Disabled" Padding="4">
-                <StackPanel x:Name="Strips" Orientation="Horizontal" Spacing="14" />
-            </ScrollViewer>
+            <TextBlock Text="Volume mixer" Style="{StaticResource SubtitleTextBlockStyle}" />
+            <Border Grid.Row="1" Style="{StaticResource CardStyle}" Padding="4">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="12,4">
+                    <StackPanel x:Name="Rows" Spacing="2" />
+                </ScrollViewer>
+            </Border>
             <TextBlock x:Name="NoAppsText" Grid.Row="1" Text="Apps playing sound show up here." Visibility="Collapsed"
-                       Style="{StaticResource RowSubtitleStyle}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                       Style="{StaticResource BodyTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                       HorizontalAlignment="Center" VerticalAlignment="Center" />
         </Grid>
     </Grid>
 </UserControl>

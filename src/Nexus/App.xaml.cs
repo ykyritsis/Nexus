@@ -35,6 +35,9 @@ public partial class App : Application
     protected override void OnLaunched(LaunchActivatedEventArgs e)
     {
         _ui = DispatcherQueue.GetForCurrentThread();
+        // The Fluent navigation sounds Xbox uses (focus, select, back, open, close).
+        ElementSoundPlayer.State = ElementSoundPlayerState.On;
+        ElementSoundPlayer.SpatialAudioMode = ElementSpatialAudioMode.Off;
         _shell = new ShellWindow(this);
 
         Gamepad.GuidePressed += (slot, at) =>

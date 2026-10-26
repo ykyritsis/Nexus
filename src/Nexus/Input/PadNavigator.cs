@@ -35,7 +35,6 @@ public sealed class PadNavigator
     public void Handle(Pad button)
     {
         if (!_shell.IsOpen) return;
-        Services.Log.Info($"pad {button}");
         if (_openCombo != null && HandleCombo(button)) return;
 
         var focused = FocusManager.GetFocusedElement(_shell.NavRoot.XamlRoot) as DependencyObject;
@@ -72,7 +71,10 @@ public sealed class PadNavigator
             XYFocusNavigationStrategyOverride = XYFocusNavigationStrategyOverride.Projection,
         };
         if (FocusManager.FindNextElement(direction, options) is Control next)
-            next.Focus(FocusState.Keyboard); // keyboard state = visible focus ring
+        {
+            next.Focus(FocusState.Keyboard); // keyboard state = the system focus visual
+            ElementSoundPlayer.Play(ElementSoundKind.Focus);
+        }
     }
 
     static void Nudge(Slider s, int dir)
@@ -83,8 +85,12 @@ public sealed class PadNavigator
 
     void Activate(DependencyObject? focused)
     {
+        if (focused is Control) ElementSoundPlayer.Play(ElementSoundKind.Invoke);
         switch (focused)
         {
+            case SelectorBarItem item when item.Tag is string tab:
+                _shell.SelectTab(tab, focus: true);
+                break;
             case ToggleSwitch ts:
                 ts.IsOn = !ts.IsOn;
                 break;

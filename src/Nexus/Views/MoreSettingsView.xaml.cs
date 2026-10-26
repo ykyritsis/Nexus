@@ -38,8 +38,12 @@ public sealed partial class MoreSettingsView : UserControl, INexusView
             false => "Leaves the Guide button alone.",
             null => "Couldn't read Steam's setting. If Steam opens on Guide, turn off \"Guide button focuses Steam\".",
         };
-        StartupButton.Content = SetupChecks.StartWithWindows ? "Start with Windows: On" : "Start with Windows: Off";
+        _refreshing = true;
+        StartupSwitch.IsOn = SetupChecks.StartWithWindows;
+        _refreshing = false;
     }
+
+    bool _refreshing;
 
     // Writing UseNexusForGameBarEnabled alone doesn't reach a running Game Bar; the Settings toggle
     // ("Allow your controller to open Game Bar") also notifies it, so send the user there.
@@ -55,10 +59,10 @@ public sealed partial class MoreSettingsView : UserControl, INexusView
         Launch.Open("steam://open/settings");
     }
 
-    void Startup_Click(object sender, RoutedEventArgs e)
+    void Startup_Toggled(object sender, RoutedEventArgs e)
     {
-        SetupChecks.StartWithWindows = !SetupChecks.StartWithWindows;
-        Refresh();
+        if (_refreshing) return;
+        SetupChecks.StartWithWindows = StartupSwitch.IsOn;
     }
 
     void Log_Click(object sender, RoutedEventArgs e)

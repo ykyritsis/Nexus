@@ -4,55 +4,83 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <!-- Control Center style: square tiles, wide tiles for things with a slider or a status line -->
-    <Grid x:Name="TileGrid" ColumnSpacing="14" RowSpacing="14" VerticalAlignment="Center">
+    <!-- Windows 11 Quick Settings, laid out wide: actions on the left, levels on the right -->
+    <Grid ColumnSpacing="28">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition />
-            <ColumnDefinition /><ColumnDefinition /><ColumnDefinition />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="400" />
         </Grid.ColumnDefinitions>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="150" />
-            <RowDefinition Height="150" />
-        </Grid.RowDefinitions>
 
-        <Button x:Name="MicTile" Style="{StaticResource TileStyle}" Click="Mic_Click" />
-
-        <!-- Volume: a wide glass tile with its own mute button and slider -->
-        <Border Grid.Column="1" Grid.ColumnSpan="3" Style="{StaticResource GlassSurface}" Padding="20,16">
-            <Grid RowSpacing="10">
+        <StackPanel Spacing="12">
+            <TextBlock Text="Quick settings" Style="{StaticResource SubtitleTextBlockStyle}" />
+            <Grid x:Name="ActionGrid" ColumnSpacing="12" RowSpacing="18">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition />
+                </Grid.ColumnDefinitions>
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" /><RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
-                <Grid>
-                    <TextBlock Text="Volume" Style="{StaticResource RowTitleStyle}" />
-                    <TextBlock x:Name="VolumeValue" HorizontalAlignment="Right" FontSize="17" FontWeight="SemiBold" />
-                </Grid>
-                <Grid Grid.Row="1" ColumnSpacing="16" VerticalAlignment="Center">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <Button x:Name="SpeakerMute" Style="{StaticResource IconButtonStyle}" Width="56" Height="56"
-                            Background="{StaticResource IconCircleBrush}" Click="SpeakerMute_Click">
-                        <FontIcon x:Name="SpeakerGlyph" Glyph="&#xE767;" FontSize="22" />
-                    </Button>
-                    <Slider x:Name="VolumeSlider" Grid.Column="1" Style="{StaticResource NexusSliderStyle}"
-                            Minimum="0" Maximum="100" SmallChange="2" StepFrequency="1" VerticalAlignment="Center"
-                            ValueChanged="Volume_Changed" />
-                </Grid>
             </Grid>
-        </Border>
+        </StackPanel>
 
-        <Button x:Name="KeyboardTile" Grid.Column="4" Style="{StaticResource TileStyle}" Click="Keyboard_Click" />
-        <Button x:Name="XboxTile" Grid.Column="5" Style="{StaticResource TileStyle}" Click="Xbox_Click" />
-        <Button x:Name="CompactTile" Grid.Column="6" Style="{StaticResource TileStyle}" Click="Compact_Click" />
+        <Grid Grid.Column="1" RowSpacing="12">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <TextBlock Text="Sound" Style="{StaticResource SubtitleTextBlockStyle}" />
 
-        <Button x:Name="NetworkTile" Grid.Row="1" Grid.ColumnSpan="2" Style="{StaticResource TileStyle}" Click="Network_Click" />
-        <Button x:Name="BluetoothTile" Grid.Row="1" Grid.Column="2" Style="{StaticResource TileStyle}" Click="Bluetooth_Click" />
-        <Button x:Name="AirplaneTile" Grid.Row="1" Grid.Column="3" Style="{StaticResource TileStyle}" Click="Airplane_Click" />
-        <Button x:Name="CursorTile" Grid.Row="1" Grid.Column="4" Style="{StaticResource TileStyle}" Click="Cursor_Click" />
-        <Button x:Name="GameBarTile" Grid.Row="1" Grid.Column="5" Style="{StaticResource TileStyle}" Click="GameBar_Click" />
-        <Button x:Name="MoreTile" Grid.Row="1" Grid.Column="6" Style="{StaticResource TileStyle}" Click="More_Click" />
+            <Border Grid.Row="1" Style="{StaticResource CardStyle}">
+                <StackPanel Spacing="6">
+                    <Grid ColumnSpacing="10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="36" />
+                        </Grid.ColumnDefinitions>
+                        <Button x:Name="SpeakerMute" Style="{StaticResource IconButtonStyle}" Click="SpeakerMute_Click" AutomationProperties.Name="Mute speakers">
+                            <FontIcon x:Name="SpeakerGlyph" Glyph="&#xE767;" FontSize="16" />
+                        </Button>
+                        <Slider x:Name="VolumeSlider" Grid.Column="1" Minimum="0" Maximum="100" SmallChange="2" VerticalAlignment="Center"
+                                ValueChanged="Volume_Changed" AutomationProperties.Name="Volume" />
+                        <TextBlock x:Name="VolumeValue" Grid.Column="2" Style="{StaticResource BodyTextBlockStyle}" VerticalAlignment="Center" TextAlignment="Right" />
+                    </Grid>
+                    <Grid ColumnSpacing="10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="36" />
+                        </Grid.ColumnDefinitions>
+                        <Button x:Name="MicMute" Style="{StaticResource IconButtonStyle}" Click="MicMute_Click" AutomationProperties.Name="Mute microphone">
+                            <FontIcon x:Name="MicGlyph" Glyph="&#xE720;" FontSize="16" />
+                        </Button>
+                        <Slider x:Name="MicSlider" Grid.Column="1" Minimum="0" Maximum="100" SmallChange="2" VerticalAlignment="Center"
+                                ValueChanged="Mic_Changed" AutomationProperties.Name="Microphone level" />
+                        <TextBlock x:Name="MicValue" Grid.Column="2" Style="{StaticResource BodyTextBlockStyle}" VerticalAlignment="Center" TextAlignment="Right" />
+                    </Grid>
+                    <Button x:Name="OutputButton" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                            Background="Transparent" BorderThickness="0" Click="Output_Click" Margin="0,4,0,0">
+                        <Grid ColumnSpacing="10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Glyph="&#xE7F5;" FontSize="14" />
+                            <TextBlock x:Name="OutputName" Grid.Column="1" Style="{StaticResource CaptionTextBlockStyle}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                            <FontIcon Grid.Column="2" Glyph="&#xE76C;" FontSize="12" />
+                        </Grid>
+                    </Button>
+                </StackPanel>
+            </Border>
+
+            <!-- Footer, like the bottom row of Windows' Quick Settings -->
+            <Grid Grid.Row="3">
+                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <FontIcon x:Name="NetGlyph" Glyph="&#xE839;" FontSize="16" />
+                    <TextBlock x:Name="NetText" Style="{StaticResource CaptionTextBlockStyle}" VerticalAlignment="Center" />
+                </StackPanel>
+                <Button x:Name="MoreButton" Style="{StaticResource IconButtonStyle}" HorizontalAlignment="Right" Click="More_Click"
+                        AutomationProperties.Name="More settings" ToolTipService.ToolTip="More settings">
+                    <FontIcon Glyph="&#xE713;" FontSize="16" />
+                </Button>
+            </Grid>
+        </Grid>
     </Grid>
 </UserControl>

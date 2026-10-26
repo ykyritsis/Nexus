@@ -68,6 +68,14 @@ public static class SystemStatus
         catch { return "On"; }
     }
 
+    public static async Task SetBluetoothAsync(bool on)
+    {
+        var radio = (await RadiosAsync()).FirstOrDefault(r => r.Kind == RadioKind.Bluetooth);
+        if (radio is null) return;
+        try { await radio.SetStateAsync(on ? RadioState.On : RadioState.Off); Log.Info($"Bluetooth {(on ? "on" : "off")}"); }
+        catch (Exception ex) { Log.Error("Bluetooth radio", ex); }
+    }
+
     /// <summary>Airplane mode as Nexus sees it: every wireless radio off. Null if there are none.</summary>
     public static async Task<bool?> AirplaneAsync()
     {
