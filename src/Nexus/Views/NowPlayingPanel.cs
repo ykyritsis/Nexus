@@ -59,7 +59,47 @@ public sealed class NowPlayingPanel : UserControl
 
     Button? _resume;
 
-    public void FocusFirst() => _resume?.Focus(FocusState.Programmatic);
+    public void FocusFirst() => _resume?.Focus(FocusState.Keyboard);
+
+    /// <summary>Quitting needs two presses in the same visit; reopening the overlay starts over.</summary>
+    public void ResetQuit()
+    {
+        _forceArmed = false;
+        if (!_quitArmed || _quit is null) return;
+        _quitArmed = false;
+        SetQuitLabel("Quit game", warn: false);
+    }
+
+    bool _forceArmed;
+
+    public bool CanForceQuit => _playing.ProcessId != 0;
+
+    /// <summary>X: screenshot of the game.</summary>
+    public void Screenshot() => ForGame(Captures.Screenshot);
+
+    /// <summary>Y: end a frozen game's process. The first press asks, the second ends it.</summary>
+    public void ForceQuit()
+    {
+        if (_playing.ProcessId == 0) return;
+        if (!_forceArmed)
+        {
+            _forceArmed = true;
+            _quitArmed = false;
+            SetQuitLabel("Press Y again to force quit", warn: true);
+            return;
+        }
+        Log.Info($"force-quitting {_playing.Game.Name}");
+        OpenWindows.ForceClose(_playing.ProcessId);
+        _shell.Hide(restoreFocus: false);
+    }
+
+    void SetQuitLabel(string text, bool warn)
+    {
+        if (_quit is null) return;
+        ((TextBlock)((StackPanel)_quit.Content).Children[1]).Text = text;
+        if (warn) _quit.Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 140, 120));
+        else _quit.ClearValue(Control.ForegroundProperty);
+    }
 
     public void UpdateSession()
     {
@@ -130,6 +170,39 @@ public sealed class NowPlayingPanel : UserControl
         });
 
         if (await ArtColor.FromFileAsync(scene ?? console?.Square) is { } mood) _shell.SetAmbient(mood);
+        await AddCapturesAsync(layers);
+    }
+
+    /// <summary>This game's latest screenshots and clips, as small thumbnails in the card's corner.</summary>
+    async Task AddCapturesAsync(Grid layers)
+    {
+        string? title = null;
+        if (_playing.Window != IntPtr.Zero) title = OpenWindows.List().FirstOrDefault(w => w.Handle == _playing.Window)?.Title;
+        var files = await Task.Run(() => Captures.LatestFor(new[] { _playing.Game.Name, title }, _playing.StartedAt, 3));
+        if (files.Count == 0) return;
+        var row = new StackPanel
+        {
+            Orientation = Orientation.Horizontal, Spacing = 6, Margin = new Thickness(12),
+            HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Bottom,
+        };
+        foreach (var f in files)
+        {
+            var thumb = new Border { Width = 64, Height = 36, CornerRadius = new CornerRadius(8), Background = (Brush)Res["GlassChipFill"] };
+            if (await Icons.LoadAsync(f.FullName, 128) is { } img)
+                thumb.Background = new ImageBrush { ImageSource = img, Stretch = Stretch.UniformToFill };
+            if (f.Extension.Equals(".mp4", StringComparison.OrdinalIgnoreCase))
+                thumb.Child = new FontIcon { Glyph = "", FontSize = 11, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+            var b = new Button
+            {
+                Style = (Style)Res["IconButtonStyle"], Width = 66, Height = 38, Padding = new Thickness(1), CornerRadius = new CornerRadius(9),
+                BorderBrush = (Brush)Res["GlassRim"], BorderThickness = new Thickness(1), Content = thumb,
+            };
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(b, f.Name);
+            var path = f.FullName;
+            b.Click += (_, _) => { _shell.Hide(restoreFocus: false); Launch.Open(path); };
+            row.Children.Add(b);
+        }
+        layers.Children.Add(row);
     }
 
     // ---------------- details ----------------
@@ -166,7 +239,7 @@ public sealed class NowPlayingPanel : UserControl
         return panel;
     }
 
-    static Grid AchievementRow(Achievement a)
+    Grid AchievementRow(Achievement a)
     {
         var row = new Grid { ColumnSpacing = 10 };
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -175,10 +248,8 @@ public sealed class NowPlayingPanel : UserControl
         {
             Width = 34, Height = 34, CornerRadius = new CornerRadius(8), Background = (Brush)Res["IconCircleBrush"],
         };
-        if (!a.Hidden && a.IconUrl != "")
-            icon.Background = new ImageBrush { ImageSource = new BitmapImage(new Uri(a.IconUrl)) { DecodePixelWidth = 68 }, Stretch = Stretch.UniformToFill };
-        else
-            icon.Child = new FontIcon { Glyph = "", FontSize = 14 };
+        if (!a.Hidden && a.IconUrl != "") _ = IconAsync(icon, a.IconUrl);
+        else icon.Child = new FontIcon { Glyph = "", FontSize = 14 };
         var text = new StackPanel
         {
             VerticalAlignment = VerticalAlignment.Center,
@@ -192,6 +263,14 @@ public sealed class NowPlayingPanel : UserControl
         row.Children.Add(icon);
         row.Children.Add(text);
         return row;
+    }
+
+    /// <summary>Achievement icons are downloaded once and kept with the other artwork.</summary>
+    async Task IconAsync(Border icon, string url)
+    {
+        if (await ConsoleArt.SmallImageAsync(url, $"ach_{_playing.AppId}_{Path.GetFileName(new Uri(url).LocalPath)}") is { } file
+            && await Icons.LoadAsync(file, 68) is { } img)
+            icon.Background = new ImageBrush { ImageSource = img, Stretch = Stretch.UniformToFill };
     }
 
     // ---------------- actions ----------------
@@ -224,8 +303,8 @@ public sealed class NowPlayingPanel : UserControl
         if (!_quitArmed)
         {
             _quitArmed = true;
-            ((TextBlock)((StackPanel)_quit!.Content).Children[1]).Text = "Press again to quit";
-            _quit.Foreground = new SolidColorBrush(Color.FromArgb(255, 255, 140, 120));
+            _forceArmed = false;
+            SetQuitLabel("Press again to quit", warn: true);
             return;
         }
         Log.Info($"quitting {_playing.Game.Name}");

@@ -36,23 +36,26 @@ public static class NowPlaying
 
         // The game's own process: the earliest one running from its install folder. Remembered while
         // it runs, so reopening the overlay doesn't scan every process again.
-        Process? best = null;
-        if (_cached is { } c && c.appId == appId && IsAlive(c.pid)) best = Process.GetProcessById(c.pid);
+        int pid = 0;
+        DateTime started = DateTime.MaxValue;
+        if (_cached is { } c && c.appId == appId && StartOf(c.pid) is { } t) (pid, started) = (c.pid, t);
         else
         {
             foreach (var p in Process.GetProcesses())
             {
-                var path = Native.ProcessPath((uint)p.Id);
-                if (path != null && path.StartsWith(installDir, StringComparison.OrdinalIgnoreCase)
-                    && (best is null || SafeStart(p) < SafeStart(best)))
-                    best = p;
+                using (p)
+                {
+                    var path = Native.ProcessPath((uint)p.Id);
+                    if (path is null || !path.StartsWith(installDir, StringComparison.OrdinalIgnoreCase)) continue;
+                    var s = SafeStart(p);
+                    if (pid == 0 || s < started) (pid, started) = (p.Id, s);
+                }
             }
-            _cached = best is null ? null : (appId, best.Id);
+            _cached = pid == 0 ? null : (appId, pid);
         }
-        uint pid = (uint)(best?.Id ?? 0);
-        var window = WindowOf(pid, previousForeground);
-        var started = best is null ? null : SafeStart(best) is var s && s != DateTime.MaxValue ? s : (DateTime?)null;
-        return new PlayingGame(game, appId.ToString(), pid, window, started, best is null ? null : Native.ProcessPath(pid));
+        var window = WindowOf((uint)pid, previousForeground);
+        return new PlayingGame(game, appId.ToString(), (uint)pid, window,
+            started == DateTime.MaxValue ? null : started, pid == 0 ? null : Native.ProcessPath((uint)pid));
     }
 
     static PlayingGame? FromWindow(IntPtr hwnd)
@@ -67,7 +70,7 @@ public static class NowPlaying
         try { name = FileVersionInfo.GetVersionInfo(path).FileDescription is { Length: > 0 } d ? d : Path.GetFileNameWithoutExtension(path); }
         catch { name = Path.GetFileNameWithoutExtension(path); }
         DateTime? started = null;
-        try { started = Process.GetProcessById((int)pid).StartTime; } catch { }
+        started = StartOf((int)pid);
         var game = new GameEntry($"exe:{Path.GetFileNameWithoutExtension(path).ToLowerInvariant()}", name, "PC", path,
             new GameArt(path, null, null, null), DateTime.Now);
         return new PlayingGame(game, null, pid, hwnd, started, path);
@@ -95,9 +98,15 @@ public static class NowPlaying
 
     static (int appId, int pid)? _cached;
 
-    static bool IsAlive(int pid)
+    /// <summary>Start time of a running process, or null if it has gone.</summary>
+    static DateTime? StartOf(int pid)
     {
-        try { return !Process.GetProcessById(pid).HasExited; } catch { return false; }
+        try
+        {
+            using var p = Process.GetProcessById(pid);
+            return p.HasExited ? null : p.StartTime;
+        }
+        catch { return null; }
     }
 
     static DateTime SafeStart(Process p)

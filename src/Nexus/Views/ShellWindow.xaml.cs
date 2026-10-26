@@ -122,7 +122,8 @@ public sealed partial class ShellWindow : Window
 
         HideStory.Stop();
         Place(_previousForeground);
-        if (tab != null) SelectTab(tab, focus: false);
+        // Like a console guide: reopen on the tab you left, but not deep inside one of its sub-pages.
+        if (tab != null || _subPages.Count > 0) SelectTab(tab ?? _tab, focus: false);
         _visible = true;
         _shownAt = Environment.TickCount64;
         _app.Gamepad.Navigating = true;
@@ -286,11 +287,18 @@ public sealed partial class ShellWindow : Window
         var view = page as INexusView;
         TitleText.Text = view?.Title ?? "";
         SubHeader.Visibility = _subPages.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        RefreshHints();
+        if (_visible) view?.OnShown();
+    }
+
+    /// <summary>Re-reads the current page's X/Y hints (for pages whose actions depend on what they show).</summary>
+    public void RefreshHints()
+    {
+        var view = CurrentView;
         YHint.Visibility = view?.YHint is null ? Visibility.Collapsed : Visibility.Visible;
         YHintText.Text = view?.YHint ?? "";
         XHint.Visibility = view?.XHint is null ? Visibility.Collapsed : Visibility.Visible;
         XHintText.Text = view?.XHint ?? "";
-        if (_visible) view?.OnShown();
     }
 
     public INexusView? CurrentView => ContentHost.Content as INexusView;

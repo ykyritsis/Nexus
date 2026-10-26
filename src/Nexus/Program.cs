@@ -15,6 +15,9 @@ public static class Program
     {
         if (!SingleInstance.TryBecomePrimary(args))
             return 0;
+        // "--quit" with nothing running has nothing to close; don't start a copy just to open it.
+        if (args.Contains("--quit", StringComparer.OrdinalIgnoreCase))
+            return 0;
 
         WinRT.ComWrappersSupport.InitializeComWrappers();
         Application.Start(init =>

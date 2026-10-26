@@ -14,7 +14,7 @@ public static class Launch
             var psi = new ProcessStartInfo(target) { UseShellExecute = true };
             if (args != null) psi.Arguments = args;
             if (File.Exists(target)) psi.WorkingDirectory = Path.GetDirectoryName(target)!;
-            Process.Start(psi);
+            using var _ = Process.Start(psi);
             Log.Info($"opened {target}");
             return true;
         }

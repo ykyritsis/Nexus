@@ -34,12 +34,31 @@ public sealed partial class HomeView : UserControl, INexusView
     DispatcherTimer? _clock;
 
     public string Title => "Home";
+    bool NowShowing => _now != null && NowHost.Visibility == Visibility.Visible;
+    public string? XHint => NowShowing ? "Screenshot" : null;
+    public string? YHint => NowShowing && _now!.CanForceQuit ? "Force quit" : null;
+
+    public bool HandleX(DependencyObject? focused)
+    {
+        if (!NowShowing) return false;
+        _now!.Screenshot();
+        return true;
+    }
+
+    public bool HandleY(DependencyObject? focused)
+    {
+        if (!NowShowing) return false;
+        _now!.ForceQuit();
+        return true;
+    }
 
     public HomeView(App app, ShellWindow shell)
     {
         _app = app;
         _shell = shell;
         InitializeComponent();
+        ElementCompositionPreview.SetIsTranslationEnabled(NowHost, true);
+        ElementCompositionPreview.SetIsTranslationEnabled(RecentGrid, true);
     }
 
     public void OnShown()
@@ -73,6 +92,7 @@ public sealed partial class HomeView : UserControl, INexusView
             _now = new NowPlayingPanel(_shell, playing, achievements, playtime, () => ShowNow(false));
             NowHost.Content = _now;
         }
+        _now.ResetQuit();
         _now.UpdateSession();
         ShowNow(true);
         _clock ??= new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
@@ -85,10 +105,32 @@ public sealed partial class HomeView : UserControl, INexusView
 
     void ShowNow(bool now)
     {
+        var incoming = now ? (UIElement)NowHost : RecentGrid;
+        bool changed = incoming.Visibility != Visibility.Visible;
         NowHost.Visibility = now ? Visibility.Visible : Visibility.Collapsed;
         RecentGrid.Visibility = now ? Visibility.Collapsed : Visibility.Visible;
+        if (changed) Reveal(incoming, fromRight: !now);
+        _shell.RefreshHints();
         if (now) _now?.FocusFirst();
-        else if (Tiles.Children.FirstOrDefault() is Control first) first.Focus(FocusState.Programmatic);
+        else if (Tiles.Children.FirstOrDefault() is Control first) first.Focus(FocusState.Keyboard);
+    }
+
+    /// <summary>Hub and tiles slide in from the side they "live" on, with the same spring as the tiles.</summary>
+    static void Reveal(UIElement element, bool fromRight)
+    {
+        var visual = ElementCompositionPreview.GetElementVisual(element);
+        var c = visual.Compositor;
+        var spring = c.CreateCubicBezierEasingFunction(new Vector2(0.22f, 1f), new Vector2(0.36f, 1f));
+        var fade = c.CreateScalarKeyFrameAnimation();
+        fade.InsertKeyFrame(0f, 0f);
+        fade.InsertKeyFrame(1f, 1f, spring);
+        fade.Duration = TimeSpan.FromMilliseconds(260);
+        var slide = c.CreateVector3KeyFrameAnimation();
+        slide.InsertKeyFrame(0f, new Vector3(fromRight ? 36 : -36, 0, 0));
+        slide.InsertKeyFrame(1f, Vector3.Zero, spring);
+        slide.Duration = TimeSpan.FromMilliseconds(340);
+        visual.StartAnimation("Opacity", fade);
+        visual.StartAnimation("Translation", slide);
     }
 
     void Home_Click(object sender, RoutedEventArgs e) => OpenAndHide(Launch.Resolve(_app.Settings.HomeTarget));

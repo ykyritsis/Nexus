@@ -37,7 +37,8 @@ public sealed class AudioService
     // ---------------- master volume ----------------
     public (float volume, bool muted)? Endpoint(DataFlow flow)
     {
-        var d = Default(flow);
+        // Each lookup is a fresh COM object; dispose it so the 1 s polling doesn't pile them up.
+        using var d = Default(flow);
         if (d is null) return null;
         var v = d.AudioEndpointVolume;
         return (v.MasterVolumeLevelScalar, v.Mute);
@@ -45,22 +46,30 @@ public sealed class AudioService
 
     public void SetVolume(DataFlow flow, float value)
     {
-        var d = Default(flow);
+        using var d = Default(flow);
         if (d != null) d.AudioEndpointVolume.MasterVolumeLevelScalar = Math.Clamp(value, 0f, 1f);
     }
 
     public void SetMute(DataFlow flow, bool muted)
     {
-        var d = Default(flow);
+        using var d = Default(flow);
         if (d != null) d.AudioEndpointVolume.Mute = muted;
     }
 
     // ---------------- devices ----------------
-    public List<AudioDevice> Devices(DataFlow flow) =>
-        _enumerator.EnumerateAudioEndPoints(flow, DeviceState.Active)
-            .Select(d => new AudioDevice(d.ID, d.FriendlyName)).ToList();
+    public List<AudioDevice> Devices(DataFlow flow)
+    {
+        var list = new List<AudioDevice>();
+        foreach (var d in _enumerator.EnumerateAudioEndPoints(flow, DeviceState.Active))
+            using (d) list.Add(new AudioDevice(d.ID, d.FriendlyName));
+        return list;
+    }
 
-    public string? DefaultId(DataFlow flow) => Default(flow)?.ID;
+    public string? DefaultId(DataFlow flow)
+    {
+        using var d = Default(flow);
+        return d?.ID;
+    }
 
     /// <summary>Makes a device the default for all three roles, like the Sound settings page does.</summary>
     public void SetDefault(string id)

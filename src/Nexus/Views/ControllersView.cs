@@ -85,13 +85,17 @@ public sealed class ControllersView : UserControl, INexusView
         var key = string.Join("|", pads.Select(p => p.Key));
         if (key == _key) return;
         _key = key;
+        var focused = Microsoft.UI.Xaml.Input.FocusManager.GetFocusedElement(XamlRoot) as UIElement;
+        int at = focused is null ? -1 : _row.Children.IndexOf(focused);
         _row.Children.Clear();
         if (pads.Count == 0)
         {
+            if (at >= 0) _app.Shell.FocusContent();
             _row.Children.Add(new TextBlock { Text = "No controllers connected.", Style = (Style)Res["BodyTextBlockStyle"], Foreground = (Brush)Res["SubtleTextBrush"] });
             return;
         }
         foreach (var p in pads) _row.Children.Add(Card(p));
+        if (at >= 0 && _row.Children[Math.Min(at, _row.Children.Count - 1)] is Control again) again.Focus(FocusState.Keyboard);
     }
 
     Button Card(Pad p)

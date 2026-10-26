@@ -45,4 +45,20 @@ public static class Captures
             .OrderByDescending(f => f.LastWriteTimeUtc)
             .Take(count).ToList();
     }
+
+    /// <summary>
+    /// Latest captures of one game. Game Bar names files after the window title ("Game Name
+    /// 2026-10-27 21-04-11.png"), so match on the name; anything captured since the game started
+    /// counts too, because the game was in front.
+    /// </summary>
+    public static List<FileInfo> LatestFor(IEnumerable<string?> names, DateTime? since, int count)
+    {
+        var keys = names.Select(Squash).Where(k => k.Length >= 3).Distinct().ToList();
+        return Latest(200)
+            .Where(f => (since is { } s && f.LastWriteTime >= s) || keys.Any(k => Squash(f.Name).StartsWith(k)))
+            .Take(count).ToList();
+    }
+
+    /// <summary>Letters and digits only, lower case: "Call of Duty®: WWII" and "Call of Duty WWII" match.</summary>
+    static string Squash(string? s) => s is null ? "" : string.Concat(s.Where(char.IsLetterOrDigit)).ToLowerInvariant();
 }

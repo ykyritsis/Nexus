@@ -19,6 +19,6 @@ public static class Power
     static void Shutdown(string args)
     {
         Log.Info($"power: shutdown {args}");
-        Process.Start(new ProcessStartInfo("shutdown.exe", args) { UseShellExecute = false, CreateNoWindow = true });
+        using var _ = Process.Start(new ProcessStartInfo("shutdown.exe", args) { UseShellExecute = false, CreateNoWindow = true });
     }
 }

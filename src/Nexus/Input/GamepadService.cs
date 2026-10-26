@@ -123,13 +123,15 @@ public sealed class GamepadService : IDisposable
 
                 if (r != 0)
                 {
-                    if (_connected[slot]) { _connected[slot] = false; ConnectionChanged?.Invoke(slot, false); }
+                    if (_connected[slot]) { _connected[slot] = false; ReleaseMouse(); ConnectionChanged?.Invoke(slot, false); }
                     _nextProbe[slot] = now + 1000; // empty slots are slow to query; check once a second
                     _prev[slot] = Pad.None;
                     continue;
                 }
                 if (!_connected[slot]) { _connected[slot] = true; ConnectionChanged?.Invoke(slot, true); Log.Info($"controller {slot + 1} connected"); }
-                Process(slot, s, now);
+                // A handler that throws must not end this thread (and with it the Guide button).
+                try { Process(slot, s, now); }
+                catch (Exception ex) { Log.Error("gamepad handler", ex); _prev[slot] = (Pad)s.Buttons; }
             }
             // 125 Hz in menus (or driving the cursor), 60 Hz otherwise: plenty for the Guide button,
             // and with no controller connected it only checks four times a second.
@@ -189,6 +191,7 @@ public sealed class GamepadService : IDisposable
         {
             Cursor(s, raw, prev);
         }
+        if (Navigating || !CursorMode) ReleaseMouse();
         _prev[slot] = pad;
     }
 
@@ -208,12 +211,21 @@ public sealed class GamepadService : IDisposable
 
         var down = raw & ~prev;
         var up = prev & ~raw;
-        if ((down & Pad.A) != 0) Native.mouse_event(Native.MOUSEEVENTF_LEFTDOWN, 0, 0, 0, UIntPtr.Zero);
-        if ((up & Pad.A) != 0) Native.mouse_event(Native.MOUSEEVENTF_LEFTUP, 0, 0, 0, UIntPtr.Zero);
-        if ((down & Pad.B) != 0) Native.mouse_event(Native.MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, UIntPtr.Zero);
-        if ((up & Pad.B) != 0) Native.mouse_event(Native.MOUSEEVENTF_RIGHTUP, 0, 0, 0, UIntPtr.Zero);
+        if ((down & Pad.A) != 0) { Native.mouse_event(Native.MOUSEEVENTF_LEFTDOWN, 0, 0, 0, UIntPtr.Zero); _leftDown = true; }
+        if ((up & Pad.A) != 0 && _leftDown) { Native.mouse_event(Native.MOUSEEVENTF_LEFTUP, 0, 0, 0, UIntPtr.Zero); _leftDown = false; }
+        if ((down & Pad.B) != 0) { Native.mouse_event(Native.MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, UIntPtr.Zero); _rightDown = true; }
+        if ((up & Pad.B) != 0 && _rightDown) { Native.mouse_event(Native.MOUSEEVENTF_RIGHTUP, 0, 0, 0, UIntPtr.Zero); _rightDown = false; }
         if (Math.Abs((int)s.RY) > 9000) Native.mouse_event(Native.MOUSEEVENTF_WHEEL, 0, 0, s.RY / 600, UIntPtr.Zero);
     }
 
-    public void Dispose() => _running = false;
+    bool _leftDown, _rightDown;
+
+    /// <summary>Lets go of any mouse button the cursor mode is holding (overlay opened, pad gone).</summary>
+    void ReleaseMouse()
+    {
+        if (_leftDown) { Native.mouse_event(Native.MOUSEEVENTF_LEFTUP, 0, 0, 0, UIntPtr.Zero); _leftDown = false; }
+        if (_rightDown) { Native.mouse_event(Native.MOUSEEVENTF_RIGHTUP, 0, 0, 0, UIntPtr.Zero); _rightDown = false; }
+    }
+
+    public void Dispose() { _running = false; ReleaseMouse(); }
 }

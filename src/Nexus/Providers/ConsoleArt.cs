@@ -216,6 +216,22 @@ public static class ConsoleArt
 
     // ---------------- cache ----------------
 
+    /// <summary>A small picture (like an achievement icon) kept on disk after the first download.</summary>
+    public static async Task<string?> SmallImageAsync(string url, string name)
+    {
+        var path = Path.Combine(Folder, "small", name);
+        if (File.Exists(path)) return path;
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            var bytes = await Http.GetByteArrayAsync(url);
+            if (bytes.Length < 64) return null;
+            await File.WriteAllBytesAsync(path, bytes);
+            return path;
+        }
+        catch (Exception ex) { Log.Warn($"download {url}: {ex.Message}"); return null; }
+    }
+
     static async Task<string?> DownloadAsync(string url, string path)
     {
         try

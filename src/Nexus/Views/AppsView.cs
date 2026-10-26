@@ -93,10 +93,19 @@ public sealed class AppsView : UserControl, INexusView
             return;
         }
         _key = key;
+        // Rebuilding drops focus; put it back on the same spot (the next app after one was closed).
+        var focused = Microsoft.UI.Xaml.Input.FocusManager.GetFocusedElement(XamlRoot);
+        int at = _list.FindIndex(c => ReferenceEquals(c.Main, focused));
         foreach (var c in _list) Providers.OpenWindows.Unregister(c.Thumb);
         _list.Clear();
+        _armed = null;
         _cards.Children.Clear();
         foreach (var w in windows) _cards.Children.Add(MakeCard(w).Root);
+        if (at >= 0)
+        {
+            if (_list.Count > 0) _list[Math.Min(at, _list.Count - 1)].Main.Focus(FocusState.Keyboard);
+            else _shell.FocusContent();
+        }
     }
 
     Card MakeCard(OpenWindow w)

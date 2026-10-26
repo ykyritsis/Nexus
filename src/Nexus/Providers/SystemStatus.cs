@@ -119,11 +119,13 @@ public static class SystemStatus
     {
         try
         {
-            if (Process.GetProcessesByName("TabTip").Length == 0)
+            var running = Process.GetProcessesByName("TabTip");
+            foreach (var t in running) t.Dispose();
+            if (running.Length == 0)
             {
                 var tabTip = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonProgramFiles),
                     "microsoft shared", "ink", "TabTip.exe");
-                Process.Start(new ProcessStartInfo(tabTip) { UseShellExecute = true });
+                using var _ = Process.Start(new ProcessStartInfo(tabTip) { UseShellExecute = true });
                 Thread.Sleep(350);
             }
             ((ITipInvocation)new UIHostNoLaunch()).Toggle(GetDesktopWindow());

@@ -67,7 +67,7 @@ public static class DisplayControls
     {
         try
         {
-            Process.Start(new ProcessStartInfo("conhost.exe",
+            using var _ = Process.Start(new ProcessStartInfo("conhost.exe",
                 $"--headless powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"{script}\" {args}")
             { UseShellExecute = false, CreateNoWindow = true });
             Log.Info($"ran {Path.GetFileName(script)} {args}");
