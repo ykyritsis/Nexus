@@ -20,15 +20,16 @@ public sealed class Updater
     const string LatestUrl = "https://api.github.com/repos/ykyritsis/Nexus/releases/latest";
     const string AssetName = "Nexus-win-x64.zip";
 
+    // Declared before Http: static fields initialise in order, and the client's user agent needs it.
+    public static Version Current { get; } = typeof(App).Assembly.GetName().Version ?? new Version(0, 0);
+    public static bool IsDevBuild { get; } = FindProject();
+
     static readonly HttpClient Http = CreateClient();
     readonly App _app;
     readonly DispatcherQueueTimer _check, _install;
     string? _ready;      // folder with the extracted new version
     Version? _readyVersion;
     bool _busy;
-
-    public static Version Current { get; } = typeof(App).Assembly.GetName().Version ?? new Version(0, 0);
-    public static bool IsDevBuild { get; } = FindProject();
 
     public string Status { get; private set; } = IsDevBuild ? "Development build, updates off" : "Not checked yet";
     public bool UpdateReady => _ready != null;
@@ -49,7 +50,7 @@ public sealed class Updater
     static HttpClient CreateClient()
     {
         var c = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
-        c.DefaultRequestHeaders.UserAgent.ParseAdd($"Nexus/{Current}");
+        c.DefaultRequestHeaders.UserAgent.ParseAdd($"Nexus/{Current.ToString(3)}");
         c.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
         return c;
     }

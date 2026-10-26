@@ -277,7 +277,7 @@ public sealed class NowPlayingPanel : UserControl
 
     StackPanel Actions()
     {
-        var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
         _resume = Pill("", "Resume", () => _shell.Hide());
         row.Children.Add(_resume);
         row.Children.Add(Pill("", "Screenshot", () => ForGame(Captures.Screenshot)));
@@ -317,8 +317,8 @@ public sealed class NowPlayingPanel : UserControl
     {
         var b = new Button
         {
-            Style = (Style)Res["GlassButtonStyle"], MinHeight = 42, Padding = new Thickness(14, 0, 16, 0),
-            Content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { new FontIcon { Glyph = glyph, FontSize = 15 }, new TextBlock { Text = text } } },
+            Style = (Style)Res["GlassButtonStyle"], MinHeight = 36, Padding = new Thickness(12, 0, 14, 0),
+            Content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { new FontIcon { Glyph = glyph, FontSize = 14 }, new TextBlock { Text = text, FontSize = 13 } } },
         };
         b.Click += (_, _) => click();
         return b;

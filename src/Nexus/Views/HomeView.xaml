@@ -33,15 +33,15 @@
                 <TextBlock x:Name="FocusDetail" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{StaticResource SubtleTextBrush}" />
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                <Button x:Name="HomeButton" Style="{StaticResource GlassButtonStyle}" MinHeight="42" Padding="16,0" Click="Home_Click">
+                <Button x:Name="HomeButton" Style="{StaticResource GlassButtonStyle}" MinHeight="38" Padding="14,0" Click="Home_Click">
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <FontIcon Glyph="&#xE80F;" FontSize="16" />
+                        <FontIcon Glyph="&#xE80F;" FontSize="15" />
                         <TextBlock Text="Home" />
                     </StackPanel>
                 </Button>
-                <Button x:Name="LibraryButton" Style="{StaticResource GlassButtonStyle}" MinHeight="42" Padding="16,0" Click="Library_Click">
+                <Button x:Name="LibraryButton" Style="{StaticResource GlassButtonStyle}" MinHeight="38" Padding="14,0" Click="Library_Click">
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <FontIcon Glyph="&#xE8F1;" FontSize="16" />
+                        <FontIcon Glyph="&#xE8F1;" FontSize="15" />
                         <TextBlock Text="Library" />
                     </StackPanel>
                 </Button>

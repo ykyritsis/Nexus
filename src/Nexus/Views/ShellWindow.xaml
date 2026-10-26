@@ -88,14 +88,14 @@
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
 
-                    <Border x:Name="ClockChip" Style="{StaticResource GlassSurface}" CornerRadius="22" Padding="16,7"
+                    <Border x:Name="ClockChip" Style="{StaticResource GlassSurface}" CornerRadius="18" Padding="14,6"
                             HorizontalAlignment="Left" VerticalAlignment="Center" Background="{StaticResource GlassChipFill}">
-                        <TextBlock x:Name="ClockText" Style="{StaticResource BodyStrongTextBlockStyle}" FontSize="17" />
+                        <TextBlock x:Name="ClockText" Style="{StaticResource BodyStrongTextBlockStyle}" FontSize="15" />
                     </Border>
 
-                    <Border x:Name="TabPill" Grid.Column="1" Style="{StaticResource GlassSurface}" CornerRadius="34" Padding="5" Background="{StaticResource GlassChipFill}">
+                    <Border x:Name="TabPill" Grid.Column="1" Style="{StaticResource GlassSurface}" CornerRadius="30" Padding="4" Background="{StaticResource GlassChipFill}">
                         <Grid>
-                            <Border x:Name="Lens" Width="88" Height="58" CornerRadius="29" HorizontalAlignment="Left"
+                            <Border x:Name="Lens" Width="80" Height="52" CornerRadius="26" HorizontalAlignment="Left"
                                     Background="{StaticResource LensFill}" BorderBrush="{StaticResource LensRim}" BorderThickness="1">
                                 <Border.RenderTransform>
                                     <TranslateTransform x:Name="LensSlide" />
@@ -103,22 +103,22 @@
                             </Border>
                             <StackPanel x:Name="TabStrip" Orientation="Horizontal" Spacing="2">
                                 <Button x:Name="TabHome" Tag="home" Style="{StaticResource TabButtonStyle}" Click="Tab_Click" AutomationProperties.Name="Home">
-                                    <StackPanel Spacing="2"><FontIcon Glyph="&#xE80F;" FontSize="19" /><TextBlock Text="Home" Style="{StaticResource CaptionTextBlockStyle}" HorizontalAlignment="Center" /></StackPanel>
+                                    <StackPanel Spacing="2"><FontIcon Glyph="&#xE80F;" FontSize="17" /><TextBlock Text="Home" Style="{StaticResource CaptionTextBlockStyle}" HorizontalAlignment="Center" /></StackPanel>
                                 </Button>
                                 <Button x:Name="TabSettings" Tag="settings" Style="{StaticResource TabButtonStyle}" Click="Tab_Click" AutomationProperties.Name="Settings">
-                                    <StackPanel Spacing="2"><FontIcon Glyph="&#xE713;" FontSize="19" /><TextBlock Text="Settings" Style="{StaticResource CaptionTextBlockStyle}" HorizontalAlignment="Center" /></StackPanel>
+                                    <StackPanel Spacing="2"><FontIcon Glyph="&#xE713;" FontSize="17" /><TextBlock Text="Settings" Style="{StaticResource CaptionTextBlockStyle}" HorizontalAlignment="Center" /></StackPanel>
                                 </Button>
                                 <Button x:Name="TabAudio" Tag="audio" Style="{StaticResource TabButtonStyle}" Click="Tab_Click" AutomationProperties.Name="Audio">
-                                    <StackPanel Spacing="2"><FontIcon Glyph="&#xE767;" FontSize="19" /><TextBlock Text="Audio" Style="{StaticResource CaptionTextBlockStyle}" HorizontalAlignment="Center" /></StackPanel>
+                                    <StackPanel Spacing="2"><FontIcon Glyph="&#xE767;" FontSize="17" /><TextBlock Text="Audio" Style="{StaticResource CaptionTextBlockStyle}" HorizontalAlignment="Center" /></StackPanel>
                                 </Button>
                                 <Button x:Name="TabSocial" Tag="social" Style="{StaticResource TabButtonStyle}" Click="Tab_Click" AutomationProperties.Name="Social">
-                                    <StackPanel Spacing="2"><FontIcon Glyph="&#xE716;" FontSize="19" /><TextBlock Text="Social" Style="{StaticResource CaptionTextBlockStyle}" HorizontalAlignment="Center" /></StackPanel>
+                                    <StackPanel Spacing="2"><FontIcon Glyph="&#xE716;" FontSize="17" /><TextBlock Text="Social" Style="{StaticResource CaptionTextBlockStyle}" HorizontalAlignment="Center" /></StackPanel>
                                 </Button>
                                 <Button x:Name="TabMulti" Tag="multitask" Style="{StaticResource TabButtonStyle}" Click="Tab_Click" AutomationProperties.Name="Apps">
-                                    <StackPanel Spacing="2"><FontIcon Glyph="&#xE7C4;" FontSize="19" /><TextBlock Text="Apps" Style="{StaticResource CaptionTextBlockStyle}" HorizontalAlignment="Center" /></StackPanel>
+                                    <StackPanel Spacing="2"><FontIcon Glyph="&#xE7C4;" FontSize="17" /><TextBlock Text="Apps" Style="{StaticResource CaptionTextBlockStyle}" HorizontalAlignment="Center" /></StackPanel>
                                 </Button>
                                 <Button x:Name="TabWidgets" Tag="widgets" Style="{StaticResource TabButtonStyle}" Click="Tab_Click" AutomationProperties.Name="Widgets">
-                                    <StackPanel Spacing="2"><FontIcon Glyph="&#xF0E2;" FontSize="19" /><TextBlock Text="Widgets" Style="{StaticResource CaptionTextBlockStyle}" HorizontalAlignment="Center" /></StackPanel>
+                                    <StackPanel Spacing="2"><FontIcon Glyph="&#xF0E2;" FontSize="17" /><TextBlock Text="Widgets" Style="{StaticResource CaptionTextBlockStyle}" HorizontalAlignment="Center" /></StackPanel>
                                 </Button>
                             </StackPanel>
                         </Grid>
@@ -127,17 +127,17 @@
                     <!-- Controllers (battery) and Power, in the corner like a console's top bar -->
                     <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" VerticalAlignment="Center">
                         <Button x:Name="BatteryChip" Style="{StaticResource GlassButtonStyle}" Background="{StaticResource GlassChipFill}"
-                                MinHeight="40" Padding="14,0" CornerRadius="20" Visibility="Collapsed" Click="Controllers_Click"
+                                MinHeight="36" Height="36" Padding="12,0" CornerRadius="18" Visibility="Collapsed" Click="Controllers_Click"
                                 AutomationProperties.Name="Controllers">
                             <StackPanel Orientation="Horizontal" Spacing="8">
-                                <FontIcon x:Name="BatteryGlyph" Glyph="&#xE7FC;" FontSize="16" />
-                                <TextBlock x:Name="BatteryText" Style="{StaticResource BodyTextBlockStyle}" VerticalAlignment="Center" />
+                                <FontIcon x:Name="BatteryGlyph" Glyph="&#xE7FC;" FontSize="15" />
+                                <TextBlock x:Name="BatteryText" Style="{StaticResource BodyTextBlockStyle}" FontSize="13" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
                         <Button x:Name="PowerButton" Style="{StaticResource GlassButtonStyle}" Background="{StaticResource GlassChipFill}"
-                                MinHeight="40" Width="40" Height="40" Padding="0" CornerRadius="20" Click="Power_Click"
+                                MinHeight="36" Width="36" Height="36" Padding="0" CornerRadius="18" Click="Power_Click"
                                 AutomationProperties.Name="Power" ToolTipService.ToolTip="Power">
-                            <FontIcon Glyph="&#xE7E8;" FontSize="16" />
+                            <FontIcon Glyph="&#xE7E8;" FontSize="14" />
                         </Button>
                     </StackPanel>
                 </Grid>
@@ -168,29 +168,40 @@
                     </Grid>
                 </Border>
 
+                <!-- Specular highlight: light catching the top edge of the glass, brightest in the middle -->
+                <Rectangle Grid.Row="1" Height="1" Margin="56,0.5,56,0" VerticalAlignment="Top" IsHitTestVisible="False">
+                    <Rectangle.Fill>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                            <GradientStop Color="#00FFFFFF" Offset="0" />
+                            <GradientStop Color="#B3FFFFFF" Offset="0.5" />
+                            <GradientStop Color="#00FFFFFF" Offset="1" />
+                        </LinearGradientBrush>
+                    </Rectangle.Fill>
+                </Rectangle>
+
                 <!-- Controller hints, with the Windows gamepad glyphs -->
-                <Border x:Name="HintPill" Grid.Row="2" Style="{StaticResource GlassSurface}" CornerRadius="20" Padding="18,7" HorizontalAlignment="Center" Background="{StaticResource GlassChipFill}">
-                    <StackPanel Orientation="Horizontal" Spacing="20">
+                <Border x:Name="HintPill" Grid.Row="2" Style="{StaticResource GlassSurface}" CornerRadius="16" Padding="16,6" HorizontalAlignment="Center" Background="{StaticResource GlassChipFill}">
+                    <StackPanel Orientation="Horizontal" Spacing="18">
                         <StackPanel Orientation="Horizontal" Spacing="6">
-                            <FontIcon Glyph="&#xF10C;" FontSize="19" />
-                            <FontIcon Glyph="&#xF10D;" FontSize="19" />
-                            <TextBlock Text="Tabs" Style="{StaticResource BodyTextBlockStyle}" VerticalAlignment="Center" />
+                            <FontIcon Glyph="&#xF10C;" FontSize="16" />
+                            <FontIcon Glyph="&#xF10D;" FontSize="16" />
+                            <TextBlock Text="Tabs" Style="{StaticResource BodyTextBlockStyle}" FontSize="13" VerticalAlignment="Center" />
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" Spacing="6">
-                            <FontIcon Glyph="&#xF093;" FontSize="19" Foreground="#FF6FD36F" />
-                            <TextBlock Text="Select" Style="{StaticResource BodyTextBlockStyle}" VerticalAlignment="Center" />
+                            <FontIcon Glyph="&#xF093;" FontSize="16" Foreground="#FF6FD36F" />
+                            <TextBlock Text="Select" Style="{StaticResource BodyTextBlockStyle}" FontSize="13" VerticalAlignment="Center" />
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" Spacing="6">
-                            <FontIcon Glyph="&#xF094;" FontSize="19" Foreground="#FFFF6B6B" />
-                            <TextBlock Text="Back" Style="{StaticResource BodyTextBlockStyle}" VerticalAlignment="Center" />
+                            <FontIcon Glyph="&#xF094;" FontSize="16" Foreground="#FFFF6B6B" />
+                            <TextBlock Text="Back" Style="{StaticResource BodyTextBlockStyle}" FontSize="13" VerticalAlignment="Center" />
                         </StackPanel>
                         <StackPanel x:Name="XHint" Orientation="Horizontal" Spacing="6" Visibility="Collapsed">
-                            <FontIcon Glyph="&#xF096;" FontSize="19" Foreground="#FF5AA9FF" />
-                            <TextBlock x:Name="XHintText" Style="{StaticResource BodyTextBlockStyle}" VerticalAlignment="Center" />
+                            <FontIcon Glyph="&#xF096;" FontSize="16" Foreground="#FF5AA9FF" />
+                            <TextBlock x:Name="XHintText" Style="{StaticResource BodyTextBlockStyle}" FontSize="13" VerticalAlignment="Center" />
                         </StackPanel>
                         <StackPanel x:Name="YHint" Orientation="Horizontal" Spacing="6" Visibility="Collapsed">
-                            <FontIcon Glyph="&#xF095;" FontSize="19" Foreground="#FFFFD24A" />
-                            <TextBlock x:Name="YHintText" Style="{StaticResource BodyTextBlockStyle}" VerticalAlignment="Center" />
+                            <FontIcon Glyph="&#xF095;" FontSize="16" Foreground="#FFFFD24A" />
+                            <TextBlock x:Name="YHintText" Style="{StaticResource BodyTextBlockStyle}" FontSize="13" VerticalAlignment="Center" />
                         </StackPanel>
                     </StackPanel>
                 </Border>

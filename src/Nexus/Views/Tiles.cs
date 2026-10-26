@@ -25,12 +25,12 @@ public static class Tiles
             grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             var circle = new Border
             {
-                Width = 44, Height = 44, CornerRadius = new CornerRadius(22),
+                Width = 36, Height = 36, CornerRadius = new CornerRadius(18),
                 HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top,
-                Child = new FontIcon { FontSize = 19 },
+                Child = new FontIcon { FontSize = 16 },
             };
             var text = new StackPanel { Spacing = 0 };
-            text.Children.Add(new TextBlock { FontSize = 15, FontWeight = FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis });
+            text.Children.Add(new TextBlock { FontSize = 14, FontWeight = FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis });
             text.Children.Add(new TextBlock { FontSize = 12, Opacity = 0.75, TextTrimming = TextTrimming.CharacterEllipsis });
             Grid.SetRow(text, 1);
             grid.Children.Add(circle);

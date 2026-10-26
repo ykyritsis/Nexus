@@ -190,8 +190,8 @@ public sealed partial class AudioView : UserControl, INexusView
     Strip MakeStrip(MixerApp app)
     {
         var res = Application.Current.Resources;
-        var mute = new Button { Style = (Style)res["IconButtonStyle"], Width = 48, Height = 48, Background = (Brush)res["IconCircleBrush"] };
-        if (app.IsSystem) mute.Content = new FontIcon { Glyph = "", FontSize = 24 };
+        var mute = new Button { Style = (Style)res["IconButtonStyle"], Width = 42, Height = 42, Background = (Brush)res["IconCircleBrush"] };
+        if (app.IsSystem) mute.Content = new FontIcon { Glyph = "", FontSize = 20 };
         else _ = SetIconAsync(mute, app.ExePath);
 
         var slider = new Slider
@@ -211,7 +211,7 @@ public sealed partial class AudioView : UserControl, INexusView
 
         var root = new Border
         {
-            Style = (Style)res["GlassSurface"], Width = 108, CornerRadius = new CornerRadius(28), Padding = new Thickness(8, 10, 8, 6),
+            Style = (Style)res["GlassSurface"], Width = 98, CornerRadius = new CornerRadius(22), Padding = new Thickness(8, 10, 8, 6),
             Child = new StackPanel
             {
                 Spacing = 5, HorizontalAlignment = HorizontalAlignment.Center,
@@ -250,9 +250,9 @@ public sealed partial class AudioView : UserControl, INexusView
     static async Task SetIconAsync(Button b, string? exe)
     {
         if (await Icons.LoadAsync(exe, 96) is { } img)
-            b.Content = new Image { Source = img, Width = 30, Height = 30 };
+            b.Content = new Image { Source = img, Width = 26, Height = 26 };
         else
-            b.Content = new FontIcon { Glyph = "", FontSize = 24 };
+            b.Content = new FontIcon { Glyph = "", FontSize = 20 };
     }
 
     void ToggleFavourite(string key)

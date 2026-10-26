@@ -102,20 +102,20 @@ public sealed class ControllersView : UserControl, INexusView
     {
         var badge = new Border
         {
-            Width = 64, Height = 64, CornerRadius = new CornerRadius(32), HorizontalAlignment = HorizontalAlignment.Center,
-            Background = (Brush)Res["IconCircleBrush"], Child = new FontIcon { Glyph = p.Glyph, FontSize = 30 },
+            Width = 48, Height = 48, CornerRadius = new CornerRadius(24), HorizontalAlignment = HorizontalAlignment.Center,
+            Background = (Brush)Res["IconCircleBrush"], Child = new FontIcon { Glyph = p.Glyph, FontSize = 22 },
         };
         var player = new TextBlock
         {
             Text = p.Slot >= 0 ? $"Player {p.Slot + 1}" : "Controller", Style = (Style)Res["CaptionTextBlockStyle"],
             Foreground = (Brush)Res["SubtleTextBrush"], HorizontalAlignment = HorizontalAlignment.Center,
         };
-        var name = new TextBlock { Text = p.Name, Style = (Style)Res["BodyStrongTextBlockStyle"], TextTrimming = TextTrimming.CharacterEllipsis, TextWrapping = TextWrapping.NoWrap, HorizontalAlignment = HorizontalAlignment.Center, MaxWidth = 170 };
+        var name = new TextBlock { Text = p.Name, Style = (Style)Res["BodyStrongTextBlockStyle"], TextTrimming = TextTrimming.CharacterEllipsis, TextWrapping = TextWrapping.NoWrap, HorizontalAlignment = HorizontalAlignment.Center, MaxWidth = 130, FontSize = 13 };
         var battery = new TextBlock { Text = p.Battery, Style = (Style)Res["CaptionTextBlockStyle"], HorizontalAlignment = HorizontalAlignment.Center };
         var card = new Button
         {
-            Style = (Style)Res["TileStyle"], Width = 190, Height = 196, CornerRadius = new CornerRadius(26),
-            Content = new StackPanel { Spacing = 6, VerticalAlignment = VerticalAlignment.Center, Children = { badge, player, name, battery } },
+            Style = (Style)Res["TileStyle"], Width = 148, Height = 156, CornerRadius = new CornerRadius(24), Padding = new Thickness(10),
+            Content = new StackPanel { Spacing = 4, VerticalAlignment = VerticalAlignment.Center, Children = { badge, player, name, battery } },
             Tag = p.Slot,
         };
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(card, $"{p.Name}, {p.Battery}");
@@ -128,8 +128,8 @@ public sealed class ControllersView : UserControl, INexusView
     {
         var b = new Button
         {
-            Style = (Style)Res["GlassButtonStyle"], MinHeight = 40, Padding = new Thickness(14, 0, 14, 0),
-            Content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { new FontIcon { Glyph = glyph, FontSize = 15 }, new TextBlock { Text = text } } },
+            Style = (Style)Res["GlassButtonStyle"], MinHeight = 36, Padding = new Thickness(12, 0, 14, 0),
+            Content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { new FontIcon { Glyph = glyph, FontSize = 14 }, new TextBlock { Text = text, FontSize = 13 } } },
         };
         b.Click += (_, _) => click();
         return b;

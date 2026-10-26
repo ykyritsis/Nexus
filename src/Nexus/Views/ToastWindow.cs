@@ -18,10 +18,10 @@ namespace Nexus.Views;
 /// </summary>
 public sealed class ToastWindow : Window
 {
-    const int WidthDip = 340, HeightDip = 72, TopDip = 28;
+    const int WidthDip = 320, HeightDip = 64, TopDip = 24;
 
     readonly IntPtr _hwnd;
-    readonly FontIcon _glyph = new() { FontSize = 22 };
+    readonly FontIcon _glyph = new() { FontSize = 18 };
     readonly TextBlock _title, _detail;
     readonly Grid _card;
     readonly DispatcherQueueTimer _hide;
@@ -33,11 +33,11 @@ public sealed class ToastWindow : Window
         _detail = new TextBlock { Style = (Style)res["CaptionTextBlockStyle"], Foreground = (Brush)res["SubtleTextBrush"], TextTrimming = TextTrimming.CharacterEllipsis, TextWrapping = TextWrapping.NoWrap };
         var badge = new Border
         {
-            Width = 44, Height = 44, CornerRadius = new CornerRadius(22), Background = (Brush)res["IconCircleBrush"],
+            Width = 38, Height = 38, CornerRadius = new CornerRadius(19), Background = (Brush)res["IconCircleBrush"],
             BorderBrush = (Brush)res["GlassRim"], BorderThickness = new Thickness(1), Child = _glyph,
         };
         var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Spacing = 1, Children = { _title, _detail } };
-        _card = new Grid { ColumnSpacing = 14, Padding = new Thickness(14, 0, 18, 0), Background = (Brush)res["GlassFill"] };
+        _card = new Grid { ColumnSpacing = 12, Padding = new Thickness(13, 0, 16, 0), Background = (Brush)res["GlassFill"] };
         _card.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         _card.ColumnDefinitions.Add(new ColumnDefinition());
         badge.VerticalAlignment = VerticalAlignment.Center;

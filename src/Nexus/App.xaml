@@ -71,17 +71,17 @@
             <!-- A soft accent ring just outside the glass; it follows each control's rounding -->
             <Style x:Key="FocusBase" TargetType="Control">
                 <Setter Property="FocusVisualPrimaryBrush" Value="{StaticResource AccentBrush}" />
-                <Setter Property="FocusVisualPrimaryThickness" Value="3" />
+                <Setter Property="FocusVisualPrimaryThickness" Value="2" />
                 <Setter Property="FocusVisualSecondaryThickness" Value="0" />
                 <Setter Property="FocusVisualMargin" Value="-4" />
             </Style>
 
             <!-- Tab bar items (transparent: the sliding lens behind them shows the selection) -->
             <Style x:Key="TabButtonStyle" TargetType="Button" BasedOn="{StaticResource FocusBase}">
-                <Setter Property="Width" Value="88" />
-                <Setter Property="Height" Value="58" />
+                <Setter Property="Width" Value="80" />
+                <Setter Property="Height" Value="52" />
                 <Setter Property="Padding" Value="0" />
-                <Setter Property="CornerRadius" Value="29" />
+                <Setter Property="CornerRadius" Value="26" />
                 <Setter Property="Background" Value="Transparent" />
                 <Setter Property="BorderThickness" Value="0" />
                 <Setter Property="Foreground" Value="White" />
@@ -90,9 +90,9 @@
 
             <!-- Glass pill buttons -->
             <Style x:Key="GlassButtonStyle" TargetType="Button" BasedOn="{StaticResource FocusBase}">
-                <Setter Property="MinHeight" Value="48" />
-                <Setter Property="Padding" Value="20,0" />
-                <Setter Property="CornerRadius" Value="24" />
+                <Setter Property="MinHeight" Value="40" />
+                <Setter Property="Padding" Value="16,0" />
+                <Setter Property="CornerRadius" Value="20" />
                 <Setter Property="Background" Value="{StaticResource GlassFill}" />
                 <Setter Property="BorderBrush" Value="{StaticResource GlassRim}" />
                 <Setter Property="BorderThickness" Value="1" />
@@ -105,8 +105,8 @@
                 <Setter Property="VerticalAlignment" Value="Stretch" />
                 <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                 <Setter Property="VerticalContentAlignment" Value="Stretch" />
-                <Setter Property="Padding" Value="16,14" />
-                <Setter Property="CornerRadius" Value="28" />
+                <Setter Property="Padding" Value="14,12" />
+                <Setter Property="CornerRadius" Value="24" />
                 <Setter Property="Background" Value="{StaticResource GlassFill}" />
                 <Setter Property="BorderBrush" Value="{StaticResource GlassRim}" />
                 <Setter Property="BorderThickness" Value="1" />
@@ -142,9 +142,9 @@
 
             <Style x:Key="NexusComboStyle" TargetType="ComboBox" BasedOn="{StaticResource FocusBase}">
                 <Setter Property="HorizontalAlignment" Value="Stretch" />
-                <Setter Property="MinHeight" Value="44" />
-                <Setter Property="CornerRadius" Value="22" />
-                <Setter Property="Padding" Value="16,0,10,0" />
+                <Setter Property="MinHeight" Value="38" />
+                <Setter Property="CornerRadius" Value="19" />
+                <Setter Property="Padding" Value="14,0,8,0" />
             </Style>
 
             <!-- Small floating pieces (clock, tabs, hints) carry a little more shade: they sit on the game directly -->
@@ -158,7 +158,7 @@
                 <Setter Property="Background" Value="{StaticResource GlassFill}" />
                 <Setter Property="BorderBrush" Value="{StaticResource GlassRim}" />
                 <Setter Property="BorderThickness" Value="1" />
-                <Setter Property="CornerRadius" Value="28" />
+                <Setter Property="CornerRadius" Value="24" />
             </Style>
 
             <Style x:Key="SectionHeaderStyle" TargetType="TextBlock" BasedOn="{StaticResource BodyStrongTextBlockStyle}">
