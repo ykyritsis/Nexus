@@ -25,8 +25,24 @@ A soft glow behind the panel takes its colour from the focused game.
 widget, timer and network lookup runs only while its tab is open.
 
 **Controller:** Guide opens and closes it (holding Guide is left to Windows task view). D-pad or left stick moves,
-A selects, B goes back, LB/RB switch tabs, Y favourites an app in the mixer.
-**Keyboard:** Win + Shift + G, Esc to go back. **Command line:** `Nexus.exe --toggle`, `--background`, `--quit`.
+A selects, B goes back, LB/RB switch tabs. X and Y do what the hint bar says (Now Playing: screenshot
+and force quit; Apps: close and end task; mixer: favourite).
+**Keyboard:** Win + Shift + G, Esc to go back. **Command line:** `Nexus.exe --toggle`, `--background`,
+`--quit`, `--test-toast` (preview the controller pop-up).
+
+**Controller pop-ups:** a small glass toast at the top of the screen when a controller connects,
+disconnects or runs low. It never takes focus from the game (More settings to turn off).
+
+## Install and updates
+
+Every push to `main` that changes the app is built by GitHub Actions and published as a release
+(`Nexus-win-x64.zip`). Extract it somewhere you can write to, such as `%LOCALAPPDATA%\Programs\Nexus`,
+and run `Nexus.exe`. Nexus then checks for a newer release a couple of minutes after starting and every
+six hours, downloads it in the background, and installs it only between games with the overlay
+closed (or straight away from More settings → Install update). Builds run from the source tree
+don't update themselves.
+
+The updater reads releases without signing in, so the repository has to be public for it to see them.
 
 ## Setup
 
