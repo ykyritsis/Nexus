@@ -61,8 +61,8 @@
         <Rectangle x:Name="Ambient" IsHitTestVisible="False">
             <Rectangle.Fill>
                 <RadialGradientBrush Center="0.5,0.52" GradientOrigin="0.5,0.52" RadiusX="0.42" RadiusY="0.5">
-                    <GradientStop x:Name="AmbientInner" Color="#665AC8FA" Offset="0" />
-                    <GradientStop x:Name="AmbientMid" Color="#245AC8FA" Offset="0.55" />
+                    <GradientStop x:Name="AmbientInner" Color="#445AC8FA" Offset="0" />
+                    <GradientStop x:Name="AmbientMid" Color="#185AC8FA" Offset="0.55" />
                     <GradientStop Color="#005AC8FA" Offset="1" />
                 </RadialGradientBrush>
             </Rectangle.Fill>
@@ -205,6 +205,9 @@
                         </StackPanel>
                     </StackPanel>
                 </Border>
+
+                <!-- The focus ring is drawn here, above everything in the panel (see ShellWindow.SetupFocusRing) -->
+                <Canvas x:Name="FocusLayer" Grid.RowSpan="3" IsHitTestVisible="False" />
             </Grid>
         </Viewbox>
     </Grid>

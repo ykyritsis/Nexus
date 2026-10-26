@@ -198,6 +198,7 @@ public sealed partial class HomeView : UserControl, INexusView
         {
             Style = (Style)Application.Current.Resources["GameTileStyle"],
             Width = size, Height = size, VerticalAlignment = VerticalAlignment.Center,
+            Tag = "lift", // the focus ring sizes itself to the lifted tile
         };
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(tile, game.Name);
         tile.Click += (_, _) => OpenAndHide(game.LaunchTarget);

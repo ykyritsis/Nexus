@@ -69,7 +69,9 @@
             <SolidColorBrush x:Key="ButtonBorderBrushPointerOver" Color="#66FFFFFF" />
 
             <!-- A soft accent ring just outside the glass; it follows each control's rounding -->
+            <!-- Nexus draws its own sliding focus ring; these only apply if it can't -->
             <Style x:Key="FocusBase" TargetType="Control">
+                <Setter Property="UseSystemFocusVisuals" Value="False" />
                 <Setter Property="FocusVisualPrimaryBrush" Value="{StaticResource AccentBrush}" />
                 <Setter Property="FocusVisualPrimaryThickness" Value="2" />
                 <Setter Property="FocusVisualSecondaryThickness" Value="0" />

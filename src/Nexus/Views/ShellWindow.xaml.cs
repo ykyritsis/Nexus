@@ -1,7 +1,10 @@
+using System.Numerics;
+using Microsoft.UI.Composition;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Hosting;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
@@ -90,6 +93,130 @@ public sealed partial class ShellWindow : Window
         _clock.Tick += (_, _) => UpdateHeader();
 
         SelectTab("home", focus: false);
+        SetupFocusRing();
+    }
+
+    // ---------------- focus ring ----------------
+    // Instead of Windows' focus outline (which jumps, and whose corners don't follow ours), one ring
+    // glides between controls on the compositor thread, with an even gap and matching rounded corners.
+
+    const float RingGap = 5, RingStroke = 3;
+    ShapeVisual? _ring;
+    CompositionRoundedRectangleGeometry? _ringShape;
+    ScrollViewer? _ringScroller;
+    Control? _ringTarget;
+    bool _ringShown;
+
+    void SetupFocusRing()
+    {
+        var c = ElementCompositionPreview.GetElementVisual(FocusLayer).Compositor;
+        var accent = ((SolidColorBrush)Application.Current.Resources["AccentBrush"]).Color;
+        _ringShape = c.CreateRoundedRectangleGeometry();
+        var glow = c.CreateSpriteShape(_ringShape);
+        glow.StrokeBrush = c.CreateColorBrush(Windows.UI.Color.FromArgb(70, accent.R, accent.G, accent.B));
+        glow.StrokeThickness = RingStroke + 6;
+        var line = c.CreateSpriteShape(_ringShape);
+        line.StrokeBrush = c.CreateColorBrush(accent);
+        line.StrokeThickness = RingStroke;
+        _ring = c.CreateShapeVisual();
+        _ring.Size = new Vector2(4000, 2000); // bigger than the panel; shapes draw where they are
+        _ring.Shapes.Add(glow);
+        _ring.Shapes.Add(line);
+        _ring.Opacity = 0;
+        ElementCompositionPreview.SetElementChildVisual(FocusLayer, _ring);
+        FocusManager.GotFocus += (_, e) => OnFocusMoved(e.NewFocusedElement as Control);
+    }
+
+    void OnFocusMoved(Control? target)
+    {
+        if (_ring is null) return;
+        if (!_visible || target is null || target.FocusState == FocusState.Pointer || !InPanel(target))
+        {
+            HideRing();
+            return;
+        }
+        target.UseSystemFocusVisuals = false;
+        _ringTarget = target;
+        TrackScroller(target);
+        if (target.ActualWidth <= 0) // just created: wait for its layout
+            DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () => { if (_ringTarget == target) PlaceRing(target, animate: _ringShown); });
+        else PlaceRing(target, animate: _ringShown);
+    }
+
+    void PlaceRing(Control target, bool animate)
+    {
+        if (_ring is null || _ringShape is null || target.XamlRoot is null) return;
+        Windows.Foundation.Rect r;
+        try { r = target.TransformToVisual(FocusLayer).TransformBounds(new Windows.Foundation.Rect(0, 0, target.ActualWidth, target.ActualHeight)); }
+        catch { return; }
+        // Game tiles grow when focused; ring the size they grow to.
+        double lift = target.Tag as string == "lift" ? 1.07 : 1;
+        double w = r.Width * lift + RingGap * 2, h = r.Height * lift + RingGap * 2;
+        double x = r.X - (r.Width * (lift - 1) / 2) - RingGap, y = r.Y - (r.Height * (lift - 1) / 2) - RingGap;
+        double radius = Math.Min(target.CornerRadius.TopLeft * lift + RingGap, Math.Min(w, h) / 2);
+        var offset = new Vector2((float)x, (float)y);
+        var size = new Vector2((float)w, (float)h);
+        var corner = new Vector2((float)radius);
+
+        if (!animate)
+        {
+            _ringShape.StopAnimation("Offset");
+            _ringShape.StopAnimation("Size");
+            _ringShape.StopAnimation("CornerRadius");
+            _ringShape.Offset = offset;
+            _ringShape.Size = size;
+            _ringShape.CornerRadius = corner;
+        }
+        else
+        {
+            var c = _ring.Compositor;
+            var ease = c.CreateCubicBezierEasingFunction(new Vector2(0.2f, 0.9f), new Vector2(0.3f, 1f));
+            void Glide(string property, Vector2 to)
+            {
+                var a = c.CreateVector2KeyFrameAnimation();
+                a.InsertKeyFrame(1f, to, ease);
+                a.Duration = TimeSpan.FromMilliseconds(240);
+                _ringShape.StartAnimation(property, a);
+            }
+            Glide("Offset", offset);
+            Glide("Size", size);
+            Glide("CornerRadius", corner);
+        }
+        if (!_ringShown)
+        {
+            _ringShown = true;
+            var fade = _ring.Compositor.CreateScalarKeyFrameAnimation();
+            fade.InsertKeyFrame(1f, 1f);
+            fade.Duration = TimeSpan.FromMilliseconds(140);
+            _ring.StartAnimation("Opacity", fade);
+        }
+    }
+
+    void HideRing()
+    {
+        _ringTarget = null;
+        TrackScroller(null);
+        if (_ring is null || !_ringShown) return;
+        _ringShown = false;
+        _ring.StopAnimation("Opacity");
+        _ring.Opacity = 0;
+    }
+
+    /// <summary>Keeps the ring on its control while a list scrolls it into view.</summary>
+    void TrackScroller(Control? target)
+    {
+        ScrollViewer? scroller = null;
+        for (DependencyObject? e = target; e != null && scroller is null; e = VisualTreeHelper.GetParent(e))
+            scroller = e as ScrollViewer;
+        if (ReferenceEquals(scroller, _ringScroller)) return;
+        if (_ringScroller != null) _ringScroller.ViewChanged -= Scroller_ViewChanged;
+        _ringScroller = scroller;
+        if (scroller != null) scroller.ViewChanged += Scroller_ViewChanged;
+    }
+
+    void Scroller_ViewChanged(object? sender, ScrollViewerViewChangedEventArgs e)
+    {
+        if (_ringTarget != null && _ringShown) PlaceRing(_ringTarget, animate: false);
     }
 
     // ---------------- show / hide ----------------
@@ -146,6 +273,7 @@ public sealed partial class ShellWindow : Window
         if (!_visible) return;
         Log.Info($"hidden by {by} (restore focus: {restoreFocus})");
         _visible = false;
+        HideRing();
         _app.Gamepad.Navigating = false;
         Navigator.Reset();
         _clock.Stop();
@@ -186,7 +314,9 @@ public sealed partial class ShellWindow : Window
     {
         var (b, scale) = Native.MonitorOf(near);
         int w = b.Right - b.Left, h = b.Bottom - b.Top;
-        AppWindow.MoveAndResize(new RectInt32(b.Left, b.Top, w, h));
+        // One pixel short of the full monitor: Windows treats a borderless window that exactly covers
+        // the screen as a full-screen app and turns off its acrylic, leaving a flat dark fill.
+        AppWindow.MoveAndResize(new RectInt32(b.Left, b.Top, w, h - 1));
         double dipW = w / scale, dipH = h / scale;
         Panel.Measure(new Windows.Foundation.Size(Panel.Width, double.PositiveInfinity));
         double designH = Panel.DesiredSize.Height;
@@ -373,8 +503,8 @@ public sealed partial class ShellWindow : Window
             Storyboard.SetTargetProperty(anim, "Color");
             sb.Children.Add(anim);
         }
-        Fade(AmbientInner, 0x80);
-        Fade(AmbientMid, 0x30);
+        Fade(AmbientInner, 0x50);
+        Fade(AmbientMid, 0x1C);
         sb.Begin();
     }
 
