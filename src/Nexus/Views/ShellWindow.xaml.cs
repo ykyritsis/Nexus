@@ -274,6 +274,9 @@ public sealed partial class ShellWindow : Window
 
     void Back_Click(object sender, RoutedEventArgs e) => Back();
 
+    void Power_Click(object sender, RoutedEventArgs e) => OpenSubPage(new PowerView(_app, this));
+    void Controllers_Click(object sender, RoutedEventArgs e) => OpenSubPage(new ControllersView(_app));
+
     void SetContent(FrameworkElement page)
     {
         (ContentHost.Content as INexusView)?.OnHidden();
@@ -306,15 +309,19 @@ public sealed partial class ShellWindow : Window
     void UpdateHeader()
     {
         ClockText.Text = DateTime.Now.ToString("h:mm");
-        var battery = _app.Gamepad.Battery(_app.Gamepad.LastActiveSlot);
-        if (battery is { } b)
+        var pad = _app.Gamepad;
+        var slot = pad.LastActiveSlot >= 0 ? pad.LastActiveSlot : pad.FirstConnectedSlot;
+        BatteryChip.Visibility = pad.AnyConnected ? Visibility.Visible : Visibility.Collapsed;
+        if (pad.Battery(slot) is { } b)
         {
-            BatteryChip.Visibility = Visibility.Visible;
-            // Segoe Fluent battery glyphs: 0%, 30%, 60%, 100%; a plug when wired.
             BatteryGlyph.Glyph = b.wired ? "" : b.level switch { 0 => "", 1 => "", 2 => "", _ => "" };
             BatteryText.Text = b.wired ? "Wired" : b.level switch { 0 => "Empty", 1 => "Low", 2 => "Medium", _ => "Full" };
         }
-        else BatteryChip.Visibility = Visibility.Collapsed;
+        else
+        {
+            BatteryGlyph.Glyph = "";
+            BatteryText.Text = "Controller";
+        }
     }
 
     /// <summary>Tints the glow behind the panel, e.g. with the focused game's colour.</summary>

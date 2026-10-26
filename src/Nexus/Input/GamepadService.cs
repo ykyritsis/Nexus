@@ -71,12 +71,28 @@ public sealed class GamepadService : IDisposable
     public bool CursorMode { get; set; }
     public int LastActiveSlot { get; private set; } = -1;
     public bool AnyConnected => _connected.Any(c => c);
+    public int FirstConnectedSlot => Array.IndexOf(_connected, true);
+    public bool IsConnected(int slot) => slot is >= 0 and < 4 && _connected[slot];
     public long Now => _clock.ElapsedMilliseconds;
 
     public GamepadService()
     {
         _thread = new Thread(Loop) { IsBackground = true, Name = "Nexus gamepad", Priority = ThreadPriority.AboveNormal };
         _thread.Start();
+    }
+
+    [StructLayout(LayoutKind.Sequential)] struct XInputVibration { public ushort Left, Right; }
+    [DllImport("xinput1_4.dll")] static extern uint XInputSetState(uint user, ref XInputVibration v);
+
+    /// <summary>Buzzes a controller for a moment (the Controllers page's "Test").</summary>
+    public async Task RumbleAsync(int slot, int ms = 450)
+    {
+        if (!IsConnected(slot)) return;
+        var on = new XInputVibration { Left = 40000, Right = 40000 };
+        var off = new XInputVibration();
+        XInputSetState((uint)slot, ref on);
+        await Task.Delay(ms);
+        XInputSetState((uint)slot, ref off);
     }
 
     /// <summary>Battery of a controller: (wired, level 0-3), or null if unknown/disconnected.</summary>

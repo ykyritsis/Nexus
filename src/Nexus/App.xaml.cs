@@ -45,13 +45,7 @@ public partial class App : Application
             Log.Info($"Guide pressed on controller {slot + 1}");
             _ui.TryEnqueue(() => _shell.Toggle(at));
         };
-        Gamepad.GuideHeld += slot => _ui.TryEnqueue(() =>
-        {
-            Log.Info($"Guide held on controller {slot + 1}");
-            // Hold Guide: jump straight to the Settings tab (power options live there later).
-            if (_shell.IsOpen) _shell.SelectTab("settings", focus: true);
-            else _shell.Show("settings");
-        });
+        // Holding Guide belongs to Windows (Xbox mode's task view), so Nexus only reacts to a press.
         Gamepad.NavButton += b => _ui.TryEnqueue(() => _shell.Navigator.Handle(b));
 
         _hooks = new WindowHooks(_shell.Hwnd);
