@@ -12,7 +12,7 @@ using Windows.UI;
 namespace Nexus.Views;
 
 /// <summary>
-/// Home tab, laid out like the Xbox dashboard: a row of square tiles (the most recent game larger),
+/// Home tab, laid out like a console dashboard: a row of square tiles (the most recent game larger),
 /// the focused game's name underneath, Home/Library, and installed launchers.
 ///
 /// Tile art, best first: square key art from the Xbox Store, PlayStation Store or IGN
@@ -21,7 +21,7 @@ namespace Nexus.Views;
 /// </summary>
 public sealed partial class HomeView : UserControl, INexusView
 {
-    const double HeroSize = 296, TileSize = 228;
+    const double HeroSize = 200, TileSize = 164;
 
     readonly App _app;
     readonly ShellWindow _shell;
@@ -122,7 +122,7 @@ public sealed partial class HomeView : UserControl, INexusView
     async Task<Grid> TileArtAsync(GameEntry game, double size, ConsoleArt.Found? console)
     {
         var layers = new Grid();
-        var picture = new Border { CornerRadius = new CornerRadius(8), Background = new SolidColorBrush(Color.FromArgb(255, 44, 44, 44)) };
+        var picture = new Border { CornerRadius = new CornerRadius(25), Background = new SolidColorBrush(Color.FromArgb(255, 28, 32, 40)) };
         layers.Children.Add(picture);
 
         // 1. Console square art: already a finished tile with the title on it.
@@ -146,7 +146,7 @@ public sealed partial class HomeView : UserControl, INexusView
             var fade = new LinearGradientBrush { StartPoint = new(0, 0), EndPoint = new(0, 1) };
             fade.GradientStops.Add(new GradientStop { Color = Color.FromArgb(0, 0, 0, 0), Offset = 0.45 });
             fade.GradientStops.Add(new GradientStop { Color = Color.FromArgb(170, 0, 0, 0), Offset = 1 });
-            layers.Children.Add(new Border { CornerRadius = new CornerRadius(8), Background = fade });
+            layers.Children.Add(new Border { CornerRadius = new CornerRadius(25), Background = fade });
             if (await Icons.LoadAsync(game.Art.Logo, 600) is { } logo)
                 layers.Children.Add(new Image
                 {
@@ -171,13 +171,13 @@ public sealed partial class HomeView : UserControl, INexusView
     {
         foreach (var l in await Task.Run(Launchers.Installed))
         {
-            var b = new Button { Width = 60, Height = 60, Padding = new Thickness(0), CornerRadius = new CornerRadius(8) };
+            var b = new Button { Style = (Style)Application.Current.Resources["IconButtonStyle"], Width = 40, Height = 40 };
             ToolTipService.SetToolTip(b, l.Name);
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(b, l.Name);
             if (await Icons.LoadAsync(l.IconSource, 96) is { } img)
-                b.Content = new Image { Source = img, Width = 34, Height = 34 };
+                b.Content = new Image { Source = img, Width = 28, Height = 28 };
             else
-                b.Content = new TextBlock { Text = l.Name[..1], FontSize = 20, FontWeight = FontWeights.SemiBold };
+                b.Content = new TextBlock { Text = l.Name[..1], FontSize = 16, FontWeight = FontWeights.SemiBold };
             b.Click += (_, _) => OpenAndHide(l.Target);
             Dock.Children.Add(b);
         }

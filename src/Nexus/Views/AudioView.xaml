@@ -4,68 +4,62 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <!-- Like Settings > Sound on the left and the Windows volume mixer on the right -->
-    <Grid ColumnSpacing="28">
+    <Grid ColumnSpacing="26">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="420" />
+            <ColumnDefinition Width="360" />
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
-        <StackPanel Spacing="12">
-            <TextBlock Text="Output" Style="{StaticResource SubtitleTextBlockStyle}" />
-            <Border Style="{StaticResource CardStyle}">
-                <StackPanel Spacing="10">
-                    <ComboBox x:Name="OutputBox" HorizontalAlignment="Stretch" PlaceholderText="Output device"
-                              DropDownClosed="Output_Closed" AutomationProperties.Name="Output device" />
-                    <Grid ColumnSpacing="10">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="36" />
-                        </Grid.ColumnDefinitions>
-                        <Button x:Name="SpeakerMute" Style="{StaticResource IconButtonStyle}" Click="Speaker_Click" AutomationProperties.Name="Mute speakers">
-                            <FontIcon x:Name="SpeakerGlyph" Glyph="&#xE767;" FontSize="16" />
-                        </Button>
-                        <Slider x:Name="OutSlider" Grid.Column="1" Minimum="0" Maximum="100" SmallChange="2" VerticalAlignment="Center"
-                                ValueChanged="Out_Changed" AutomationProperties.Name="Volume" />
-                        <TextBlock x:Name="OutValue" Grid.Column="2" Style="{StaticResource BodyTextBlockStyle}" VerticalAlignment="Center" TextAlignment="Right" />
-                    </Grid>
-                </StackPanel>
+        <!-- Left: output and input, each a device picker over a level pill with its mute button -->
+        <StackPanel Spacing="8" VerticalAlignment="Center">
+            <ComboBox x:Name="OutputBox" Style="{StaticResource NexusComboStyle}" PlaceholderText="Output device"
+                      DropDownClosed="Output_Closed" AutomationProperties.Name="Output device" />
+            <Border Style="{StaticResource GlassSurface}" CornerRadius="24" Padding="6,2,16,2">
+                <Grid ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="34" />
+                    </Grid.ColumnDefinitions>
+                    <Button x:Name="SpeakerMute" Style="{StaticResource IconButtonStyle}" Background="{StaticResource IconCircleBrush}"
+                            Click="Speaker_Click" AutomationProperties.Name="Mute speakers">
+                        <FontIcon x:Name="SpeakerGlyph" Glyph="&#xE767;" FontSize="16" />
+                    </Button>
+                    <Slider x:Name="OutSlider" Grid.Column="1" Style="{StaticResource NexusSliderStyle}" Minimum="0" Maximum="100"
+                            SmallChange="2" VerticalAlignment="Center" ValueChanged="Out_Changed" AutomationProperties.Name="Volume" />
+                    <TextBlock x:Name="OutValue" Grid.Column="2" Style="{StaticResource BodyStrongTextBlockStyle}" VerticalAlignment="Center" TextAlignment="Right" />
+                </Grid>
             </Border>
-
-            <TextBlock Text="Input" Style="{StaticResource SubtitleTextBlockStyle}" Margin="0,6,0,0" />
-            <Border Style="{StaticResource CardStyle}">
-                <StackPanel Spacing="10">
-                    <ComboBox x:Name="InputBox" HorizontalAlignment="Stretch" PlaceholderText="Input device"
-                              DropDownClosed="Input_Closed" AutomationProperties.Name="Input device" />
-                    <Grid ColumnSpacing="10">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="36" />
-                        </Grid.ColumnDefinitions>
-                        <Button x:Name="MicMute" Style="{StaticResource IconButtonStyle}" Click="Mic_Click" AutomationProperties.Name="Mute microphone">
-                            <FontIcon x:Name="MicGlyph" Glyph="&#xE720;" FontSize="16" />
-                        </Button>
-                        <Slider x:Name="MicSlider" Grid.Column="1" Minimum="0" Maximum="100" SmallChange="2" VerticalAlignment="Center"
-                                ValueChanged="Mic_Changed" AutomationProperties.Name="Microphone level" />
-                        <TextBlock x:Name="MicValue" Grid.Column="2" Style="{StaticResource BodyTextBlockStyle}" VerticalAlignment="Center" TextAlignment="Right" />
-                    </Grid>
-                </StackPanel>
+            <ComboBox x:Name="InputBox" Style="{StaticResource NexusComboStyle}" PlaceholderText="Input device" Margin="0,8,0,0"
+                      DropDownClosed="Input_Closed" AutomationProperties.Name="Input device" />
+            <Border Style="{StaticResource GlassSurface}" CornerRadius="24" Padding="6,2,16,2">
+                <Grid ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="34" />
+                    </Grid.ColumnDefinitions>
+                    <Button x:Name="MicMute" Style="{StaticResource IconButtonStyle}" Background="{StaticResource IconCircleBrush}"
+                            Click="Mic_Click" AutomationProperties.Name="Mute microphone">
+                        <FontIcon x:Name="MicGlyph" Glyph="&#xE720;" FontSize="16" />
+                    </Button>
+                    <Slider x:Name="MicSlider" Grid.Column="1" Style="{StaticResource NexusSliderStyle}" Minimum="0" Maximum="100"
+                            SmallChange="2" VerticalAlignment="Center" ValueChanged="Mic_Changed" AutomationProperties.Name="Microphone level" />
+                    <TextBlock x:Name="MicValue" Grid.Column="2" Style="{StaticResource BodyStrongTextBlockStyle}" VerticalAlignment="Center" TextAlignment="Right" />
+                </Grid>
             </Border>
-
-            <HyperlinkButton Content="More sound settings" Click="Manage_Click" Margin="-10,0,0,0" />
+            <HyperlinkButton Content="More sound settings" Click="Manage_Click" Foreground="{StaticResource SubtleTextBrush}" Padding="6,4" />
         </StackPanel>
 
-        <Grid Grid.Column="1" RowSpacing="12">
+        <!-- Right: the mixer as channel strips -->
+        <Grid Grid.Column="1" RowSpacing="8">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
-            <TextBlock Text="Volume mixer" Style="{StaticResource SubtitleTextBlockStyle}" />
-            <Border Grid.Row="1" Style="{StaticResource CardStyle}" Padding="4">
-                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="12,4">
-                    <StackPanel x:Name="Rows" Spacing="2" />
-                </ScrollViewer>
-            </Border>
+            <TextBlock Text="Volume mixer" Style="{StaticResource SectionHeaderStyle}" Margin="4,0,0,0" />
+            <ScrollViewer x:Name="StripScroller" Grid.Row="1" HorizontalScrollMode="Enabled" HorizontalScrollBarVisibility="Hidden"
+                          VerticalScrollMode="Disabled" VerticalScrollBarVisibility="Disabled" Padding="4">
+                <StackPanel x:Name="Strips" Orientation="Horizontal" Spacing="14" />
+            </ScrollViewer>
             <TextBlock x:Name="NoAppsText" Grid.Row="1" Text="Apps playing sound show up here." Visibility="Collapsed"
-                       Style="{StaticResource BodyTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                       Style="{StaticResource BodyTextBlockStyle}" Foreground="{StaticResource SubtleTextBrush}"
                        HorizontalAlignment="Center" VerticalAlignment="Center" />
         </Grid>
     </Grid>

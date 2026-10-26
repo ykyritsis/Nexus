@@ -3,6 +3,7 @@ using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media.Animation;
 using Nexus.Input;
 using Nexus.Interop;
 using Nexus.Services;
@@ -13,7 +14,7 @@ namespace Nexus.Views;
 
 /// <summary>
 /// The overlay. One borderless, always-on-top window covering the monitor the game is on: its
-/// backdrop blurs the game and a Quick Settings style panel sits in the middle. It is created once
+/// backdrop blurs the game and a compact liquid-glass panel floats in the middle. It is created once
 /// at startup and kept hidden, so pressing Guide only has to show it.
 /// </summary>
 public sealed partial class ShellWindow : Window
@@ -21,13 +22,13 @@ public sealed partial class ShellWindow : Window
     public static readonly string[] TabOrder = { "home", "settings", "audio", "social", "multitask", "widgets" };
 
     readonly App _app;
-    readonly Dictionary<string, SelectorBarItem> _tabItems;
+    readonly Dictionary<string, Button> _tabButtons;
     readonly Dictionary<string, FrameworkElement> _views = new();
     readonly Stack<FrameworkElement> _subPages = new();
     readonly DispatcherQueueTimer _clock;
 
     string _tab = "home";
-    bool _visible, _warming, _selecting;
+    bool _visible, _warming;
     long _pressedAt = -1, _shownAt;
     IntPtr _previousForeground;
 
@@ -42,7 +43,7 @@ public sealed partial class ShellWindow : Window
         InitializeComponent();
         Hwnd = WindowNative.GetWindowHandle(this);
         Navigator = new PadNavigator(this);
-        _tabItems = new()
+        _tabButtons = new()
         {
             ["home"] = TabHome, ["settings"] = TabSettings, ["audio"] = TabAudio,
             ["social"] = TabSocial, ["multitask"] = TabMulti, ["widgets"] = TabWidgets,
@@ -59,6 +60,10 @@ public sealed partial class ShellWindow : Window
             p.SetBorderAndTitleBar(false, false);
         }
         AppWindow.IsShownInSwitchers = false;
+        // No Windows 11 window border or corner rounding: the glass pieces draw their own edges.
+        int none = unchecked((int)0xFFFFFFFE), square = 1;
+        Native.DwmSetWindowAttribute(Hwnd, 34 /*DWMWA_BORDER_COLOR*/, ref none, sizeof(int));
+        Native.DwmSetWindowAttribute(Hwnd, Native.DWMWA_WINDOW_CORNER_PREFERENCE, ref square, sizeof(int));
         AppWindow.Closing += (_, e) => { e.Cancel = true; Hide(); }; // Alt+F4 hides, Quit exits
 
         Activated += OnActivated;
@@ -117,6 +122,7 @@ public sealed partial class ShellWindow : Window
         UpdateHeader();
         _clock.Start();
         (ContentHost.Content as INexusView)?.OnShown();
+        MoveLens(animate: false);
         FocusContent();
         Log.Info($"shown (foreground ok: {Native.GetForegroundWindow() == Hwnd})");
     }
@@ -156,23 +162,27 @@ public sealed partial class ShellWindow : Window
 
     void Scrim_PointerPressed(object sender, PointerRoutedEventArgs e) => Hide();
 
-    /// <summary>Covers the game's monitor and scales the panel to a comfortable share of it.</summary>
+    /// <summary>
+    /// Covers the game's monitor (the backdrop blurs all of it) and sizes the panel to about half
+    /// the screen width, centred.
+    /// </summary>
     void Place(IntPtr near)
     {
         var (b, scale) = Native.MonitorOf(near);
         int w = b.Right - b.Left, h = b.Bottom - b.Top;
         AppWindow.MoveAndResize(new RectInt32(b.Left, b.Top, w, h));
         double dipW = w / scale, dipH = h / scale;
-        double share = _app.Settings.CompactMode ? 0.66 : 0.8;
-        PanelBox.Width = Math.Min(dipW * share, (dipH * 0.86) * Panel.Width / Panel.Height);
+        Panel.Measure(new Windows.Foundation.Size(Panel.Width, double.PositiveInfinity));
+        double designH = Panel.DesiredSize.Height;
+        double share = _app.Settings.CompactMode ? 0.42 : 0.5;
+        PanelBox.Width = Math.Min(dipW * share, dipH * 0.45 * Panel.Width / designH);
     }
 
     // ---------------- tabs and pages ----------------
 
-    void Tabs_SelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
+    void Tab_Click(object sender, RoutedEventArgs e)
     {
-        if (_selecting || sender.SelectedItem?.Tag is not string tab) return;
-        SelectTab(tab, focus: false);
+        if (sender is Button b && b.Tag is string tab) SelectTab(tab, focus: false);
     }
 
     public void SwitchTab(int delta)
@@ -186,11 +196,32 @@ public sealed partial class ShellWindow : Window
     {
         _subPages.Clear();
         _tab = tab;
-        _selecting = true;
-        Tabs.SelectedItem = _tabItems[tab];
-        _selecting = false;
+        foreach (var (name, button) in _tabButtons)
+            button.Opacity = name == tab ? 1.0 : 0.62;
+        MoveLens(animate: _visible);
         SetContent(ViewFor(tab));
         if (focus) FocusContent();
+    }
+
+    /// <summary>Slides the glass lens under the selected tab.</summary>
+    void MoveLens(bool animate)
+    {
+        var button = _tabButtons[_tab];
+        double x;
+        try { x = button.TransformToVisual(TabStrip).TransformPoint(new Windows.Foundation.Point(0, 0)).X; }
+        catch { x = Array.IndexOf(TabOrder, _tab) * (button.Width + TabStrip.Spacing); }
+        if (!animate) { LensSlide.X = x; return; }
+        var anim = new DoubleAnimation
+        {
+            To = x,
+            Duration = TimeSpan.FromMilliseconds(320),
+            EasingFunction = new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.35 },
+        };
+        Storyboard.SetTarget(anim, LensSlide);
+        Storyboard.SetTargetProperty(anim, "X");
+        var sb = new Storyboard();
+        sb.Children.Add(anim);
+        sb.Begin();
     }
 
     FrameworkElement ViewFor(string tab)
@@ -250,7 +281,7 @@ public sealed partial class ShellWindow : Window
 
     public INexusView? CurrentView => ContentHost.Content as INexusView;
 
-    /// <summary>Puts keyboard focus (with the system focus visual) on the first control of the page.</summary>
+    /// <summary>Puts keyboard focus (with its ring) on the first control of the page.</summary>
     public void FocusContent()
     {
         DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () =>
@@ -259,27 +290,28 @@ public sealed partial class ShellWindow : Window
                 FocusManager.FindFirstFocusableElement(page) is Control c)
                 c.Focus(FocusState.Keyboard);
             else
-                _tabItems[_tab].Focus(FocusState.Keyboard);
+                _tabButtons[_tab].Focus(FocusState.Keyboard);
         });
     }
 
     void UpdateHeader()
     {
-        ClockText.Text = DateTime.Now.ToString("h:mm tt");
+        ClockText.Text = DateTime.Now.ToString("h:mm");
         var battery = _app.Gamepad.Battery(_app.Gamepad.LastActiveSlot);
         if (battery is { } b)
         {
-            BatteryPanel.Visibility = Visibility.Visible;
+            BatteryChip.Visibility = Visibility.Visible;
             // Segoe Fluent battery glyphs: 0%, 30%, 60%, 100%; a plug when wired.
             BatteryGlyph.Glyph = b.wired ? "" : b.level switch { 0 => "", 1 => "", 2 => "", _ => "" };
             BatteryText.Text = b.wired ? "Wired" : b.level switch { 0 => "Empty", 1 => "Low", 2 => "Medium", _ => "Full" };
         }
-        else BatteryPanel.Visibility = Visibility.Collapsed;
+        else BatteryChip.Visibility = Visibility.Collapsed;
     }
 
     /// <summary>Re-applies size settings (compact mode) while open.</summary>
     public void Relayout()
     {
-        if (_visible) Place(_previousForeground);
+        if (!_visible) return;
+        Place(_previousForeground);
     }
 }

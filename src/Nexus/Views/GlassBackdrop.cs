@@ -24,10 +24,10 @@ public sealed class GlassBackdrop : SystemBackdrop
         _controller = new DesktopAcrylicController
         {
             Kind = DesktopAcrylicKind.Base,
-            TintColor = Color.FromArgb(255, 10, 12, 18),
-            TintOpacity = 0.42f,
-            LuminosityOpacity = 0.5f,
-            FallbackColor = Color.FromArgb(235, 14, 16, 22),
+            TintColor = Color.FromArgb(255, 12, 14, 20),
+            TintOpacity = 0.38f,
+            LuminosityOpacity = 0.45f,
+            FallbackColor = Color.FromArgb(235, 18, 20, 26),
         };
         _controller.AddSystemBackdropTarget(target);
         _controller.SetSystemBackdropConfiguration(_config);

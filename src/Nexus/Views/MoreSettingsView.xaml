@@ -4,7 +4,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <!-- Settings-app style: one card per setting, title and description left, action right -->
+    <!-- One glass card per setting: title and description left, action right -->
     <Grid ColumnSpacing="28">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="3*" />
@@ -12,8 +12,8 @@
         </Grid.ColumnDefinitions>
 
         <StackPanel Spacing="6">
-            <TextBlock Text="Guide button" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,0,0,4" />
-            <Border Style="{StaticResource CardStyle}">
+            <TextBlock Text="Guide button" Style="{StaticResource SectionHeaderStyle}" Margin="4,0,0,4" />
+            <Border Style="{StaticResource GlassSurface}" Padding="20,16">
                 <Grid ColumnSpacing="16">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" />
@@ -22,12 +22,12 @@
                     <StackPanel Grid.Column="1" Spacing="2">
                         <TextBlock Text="Windows Game Bar" Style="{StaticResource BodyTextBlockStyle}" />
                         <TextBlock x:Name="GameBarStatus" Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                   Foreground="{StaticResource SubtleTextBrush}" />
                     </StackPanel>
-                    <Button x:Name="GameBarButton" Grid.Column="2" Click="GameBar_Click" VerticalAlignment="Center" />
+                    <Button x:Name="GameBarButton" Grid.Column="2" Style="{StaticResource GlassButtonStyle}" Click="GameBar_Click" VerticalAlignment="Center" />
                 </Grid>
             </Border>
-            <Border Style="{StaticResource CardStyle}">
+            <Border Style="{StaticResource GlassSurface}" Padding="20,16">
                 <Grid ColumnSpacing="16">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" />
@@ -36,19 +36,19 @@
                     <StackPanel Grid.Column="1" Spacing="2">
                         <TextBlock Text="Steam" Style="{StaticResource BodyTextBlockStyle}" />
                         <TextBlock x:Name="SteamStatus" Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                   Foreground="{StaticResource SubtleTextBrush}" />
                     </StackPanel>
-                    <Button Grid.Column="2" Content="Steam settings" Click="Steam_Click" VerticalAlignment="Center" />
+                    <Button Grid.Column="2" Style="{StaticResource GlassButtonStyle}" Content="Steam settings" Click="Steam_Click" VerticalAlignment="Center" />
                 </Grid>
             </Border>
             <TextBlock Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap" Margin="2,6,0,0"
-                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                       Foreground="{StaticResource SubtleTextBrush}"
                        Text="Keyboard: Win + Shift + G opens Nexus. A StreamDock key can run Nexus.exe --toggle." />
         </StackPanel>
 
         <StackPanel Grid.Column="1" Spacing="6">
-            <TextBlock Text="Nexus" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,0,0,4" />
-            <Border Style="{StaticResource CardStyle}">
+            <TextBlock Text="Nexus" Style="{StaticResource SectionHeaderStyle}" Margin="4,0,0,4" />
+            <Border Style="{StaticResource GlassSurface}" Padding="20,16">
                 <Grid ColumnSpacing="16">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" />
@@ -56,20 +56,20 @@
                     <StackPanel Spacing="2">
                         <TextBlock Text="Start with Windows" Style="{StaticResource BodyTextBlockStyle}" />
                         <TextBlock Text="Ready the moment you press Guide" Style="{StaticResource CaptionTextBlockStyle}"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                   Foreground="{StaticResource SubtleTextBrush}" />
                     </StackPanel>
                     <ToggleSwitch x:Name="StartupSwitch" Grid.Column="1" OnContent="" OffContent="" MinWidth="0"
                                   Toggled="Startup_Toggled" AutomationProperties.Name="Start with Windows" />
                 </Grid>
             </Border>
-            <Border Style="{StaticResource CardStyle}">
+            <Border Style="{StaticResource GlassSurface}" Padding="20,16">
                 <StackPanel Orientation="Horizontal" Spacing="8">
-                    <Button Content="Open log folder" Click="Log_Click" />
-                    <Button Content="Quit Nexus" Click="Quit_Click" />
+                    <Button Style="{StaticResource GlassButtonStyle}" Content="Open log folder" Click="Log_Click" />
+                    <Button Style="{StaticResource GlassButtonStyle}" Content="Quit Nexus" Click="Quit_Click" />
                 </StackPanel>
             </Border>
             <TextBlock x:Name="VersionText" Style="{StaticResource CaptionTextBlockStyle}" Margin="2,6,0,0"
-                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                       Foreground="{StaticResource SubtleTextBrush}" />
         </StackPanel>
     </Grid>
 </UserControl>

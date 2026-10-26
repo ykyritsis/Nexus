@@ -5,25 +5,36 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Title="Nexus">
 
-    <!-- The window covers the game's monitor; its acrylic backdrop blurs the game. -->
+    <!--
+        A compact glass panel in the middle of the screen. The window covers the game's monitor and
+        its acrylic backdrop blurs the whole game behind the panel, with a soft vignette on top.
+    -->
     <Grid x:Name="Root">
         <Grid.Resources>
-            <!-- Fluent motion: decelerate in (fast start, soft landing), accelerate out. -->
+            <!-- Decelerate in (fast start, soft landing), accelerate out. -->
             <Storyboard x:Name="ShowStory">
+                <DoubleAnimation Storyboard.TargetName="PanelTransform" Storyboard.TargetProperty="ScaleX"
+                                 From="0.94" To="1" Duration="0:0:0.36">
+                    <DoubleAnimation.EasingFunction><ExponentialEase EasingMode="EaseOut" Exponent="6" /></DoubleAnimation.EasingFunction>
+                </DoubleAnimation>
+                <DoubleAnimation Storyboard.TargetName="PanelTransform" Storyboard.TargetProperty="ScaleY"
+                                 From="0.94" To="1" Duration="0:0:0.36">
+                    <DoubleAnimation.EasingFunction><ExponentialEase EasingMode="EaseOut" Exponent="6" /></DoubleAnimation.EasingFunction>
+                </DoubleAnimation>
                 <DoubleAnimation Storyboard.TargetName="PanelTransform" Storyboard.TargetProperty="TranslateY"
-                                 From="36" To="0" Duration="0:0:0.33">
-                    <DoubleAnimation.EasingFunction><ExponentialEase EasingMode="EaseOut" Exponent="7" /></DoubleAnimation.EasingFunction>
+                                 From="20" To="0" Duration="0:0:0.36">
+                    <DoubleAnimation.EasingFunction><ExponentialEase EasingMode="EaseOut" Exponent="6" /></DoubleAnimation.EasingFunction>
                 </DoubleAnimation>
                 <DoubleAnimation Storyboard.TargetName="Panel" Storyboard.TargetProperty="Opacity"
-                                 From="0" To="1" Duration="0:0:0.167" />
+                                 From="0" To="1" Duration="0:0:0.18" />
                 <DoubleAnimation Storyboard.TargetName="Scrim" Storyboard.TargetProperty="Opacity"
                                  From="0" To="1" Duration="0:0:0.25" />
             </Storyboard>
             <Storyboard x:Name="HideStory">
-                <DoubleAnimation Storyboard.TargetName="PanelTransform" Storyboard.TargetProperty="TranslateY"
-                                 To="24" Duration="0:0:0.15">
-                    <DoubleAnimation.EasingFunction><ExponentialEase EasingMode="EaseIn" Exponent="4" /></DoubleAnimation.EasingFunction>
-                </DoubleAnimation>
+                <DoubleAnimation Storyboard.TargetName="PanelTransform" Storyboard.TargetProperty="ScaleX"
+                                 To="0.97" Duration="0:0:0.15" />
+                <DoubleAnimation Storyboard.TargetName="PanelTransform" Storyboard.TargetProperty="ScaleY"
+                                 To="0.97" Duration="0:0:0.15" />
                 <DoubleAnimation Storyboard.TargetName="Panel" Storyboard.TargetProperty="Opacity"
                                  To="0" Duration="0:0:0.15" />
                 <DoubleAnimation Storyboard.TargetName="Scrim" Storyboard.TargetProperty="Opacity"
@@ -31,100 +42,129 @@
             </Storyboard>
         </Grid.Resources>
 
-        <Rectangle x:Name="Scrim" Fill="{StaticResource ScrimBrush}" PointerPressed="Scrim_PointerPressed" />
+        <!-- Darkening vignette over the blur; clicking it closes the overlay -->
+        <Rectangle x:Name="Scrim" PointerPressed="Scrim_PointerPressed">
+            <Rectangle.Fill>
+                <RadialGradientBrush Center="0.5,0.5" GradientOrigin="0.5,0.5" RadiusX="0.75" RadiusY="0.75">
+                    <GradientStop Color="#40000000" Offset="0" />
+                    <GradientStop Color="#A6000000" Offset="1" />
+                </RadialGradientBrush>
+            </Rectangle.Fill>
+        </Rectangle>
 
         <!-- Designed at a fixed size and scaled to fit, so it reads the same on a monitor or a TV. -->
         <Viewbox x:Name="PanelBox" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center">
-            <Grid x:Name="Panel" Width="1180" Height="640" RenderTransformOrigin="0.5,0.5">
+            <Grid x:Name="Panel" Width="1180" RowSpacing="12" RenderTransformOrigin="0.5,0.5">
                 <Grid.RenderTransform>
                     <CompositeTransform x:Name="PanelTransform" />
                 </Grid.RenderTransform>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
 
-                <Border x:Name="Surface" Background="{StaticResource PanelBrush}" CornerRadius="8"
-                        BorderBrush="{ThemeResource SurfaceStrokeColorFlyoutBrush}" BorderThickness="1" />
+                <!-- Top bar: clock | tab pill | controller battery -->
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
 
-                <Grid Padding="20,10,24,14" RowSpacing="8">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
+                    <Border x:Name="ClockChip" Style="{StaticResource GlassSurface}" CornerRadius="22" Padding="16,7"
+                            HorizontalAlignment="Left" VerticalAlignment="Center">
+                        <TextBlock x:Name="ClockText" Style="{StaticResource BodyStrongTextBlockStyle}" FontSize="17" />
+                    </Border>
 
-                    <!-- Tabs | battery, clock -->
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <SelectorBar x:Name="Tabs" SelectionChanged="Tabs_SelectionChanged">
-                            <SelectorBarItem x:Name="TabHome" Text="Home" Tag="home">
-                                <SelectorBarItem.Icon><FontIcon Glyph="&#xE80F;" /></SelectorBarItem.Icon>
-                            </SelectorBarItem>
-                            <SelectorBarItem x:Name="TabSettings" Text="Settings" Tag="settings">
-                                <SelectorBarItem.Icon><FontIcon Glyph="&#xE713;" /></SelectorBarItem.Icon>
-                            </SelectorBarItem>
-                            <SelectorBarItem x:Name="TabAudio" Text="Audio" Tag="audio">
-                                <SelectorBarItem.Icon><FontIcon Glyph="&#xE767;" /></SelectorBarItem.Icon>
-                            </SelectorBarItem>
-                            <SelectorBarItem x:Name="TabSocial" Text="Social" Tag="social">
-                                <SelectorBarItem.Icon><FontIcon Glyph="&#xE716;" /></SelectorBarItem.Icon>
-                            </SelectorBarItem>
-                            <SelectorBarItem x:Name="TabMulti" Text="Apps" Tag="multitask">
-                                <SelectorBarItem.Icon><FontIcon Glyph="&#xE7C4;" /></SelectorBarItem.Icon>
-                            </SelectorBarItem>
-                            <SelectorBarItem x:Name="TabWidgets" Text="Widgets" Tag="widgets">
-                                <SelectorBarItem.Icon><FontIcon Glyph="&#xF0E2;" /></SelectorBarItem.Icon>
-                            </SelectorBarItem>
-                        </SelectorBar>
-                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="18" VerticalAlignment="Center">
-                            <StackPanel x:Name="BatteryPanel" Orientation="Horizontal" Spacing="6" Visibility="Collapsed">
-                                <FontIcon x:Name="BatteryGlyph" Glyph="&#xE7FC;" FontSize="16" />
-                                <TextBlock x:Name="BatteryText" Style="{StaticResource CaptionTextBlockStyle}" VerticalAlignment="Center" />
+                    <Border x:Name="TabPill" Grid.Column="1" Style="{StaticResource GlassSurface}" CornerRadius="34" Padding="5">
+                        <Grid>
+                            <Border x:Name="Lens" Width="88" Height="58" CornerRadius="29" HorizontalAlignment="Left"
+                                    Background="{StaticResource LensFill}" BorderBrush="{StaticResource LensRim}" BorderThickness="1">
+                                <Border.RenderTransform>
+                                    <TranslateTransform x:Name="LensSlide" />
+                                </Border.RenderTransform>
+                            </Border>
+                            <StackPanel x:Name="TabStrip" Orientation="Horizontal" Spacing="2">
+                                <Button x:Name="TabHome" Tag="home" Style="{StaticResource TabButtonStyle}" Click="Tab_Click" AutomationProperties.Name="Home">
+                                    <StackPanel Spacing="2"><FontIcon Glyph="&#xE80F;" FontSize="19" /><TextBlock Text="Home" Style="{StaticResource CaptionTextBlockStyle}" HorizontalAlignment="Center" /></StackPanel>
+                                </Button>
+                                <Button x:Name="TabSettings" Tag="settings" Style="{StaticResource TabButtonStyle}" Click="Tab_Click" AutomationProperties.Name="Settings">
+                                    <StackPanel Spacing="2"><FontIcon Glyph="&#xE713;" FontSize="19" /><TextBlock Text="Settings" Style="{StaticResource CaptionTextBlockStyle}" HorizontalAlignment="Center" /></StackPanel>
+                                </Button>
+                                <Button x:Name="TabAudio" Tag="audio" Style="{StaticResource TabButtonStyle}" Click="Tab_Click" AutomationProperties.Name="Audio">
+                                    <StackPanel Spacing="2"><FontIcon Glyph="&#xE767;" FontSize="19" /><TextBlock Text="Audio" Style="{StaticResource CaptionTextBlockStyle}" HorizontalAlignment="Center" /></StackPanel>
+                                </Button>
+                                <Button x:Name="TabSocial" Tag="social" Style="{StaticResource TabButtonStyle}" Click="Tab_Click" AutomationProperties.Name="Social">
+                                    <StackPanel Spacing="2"><FontIcon Glyph="&#xE716;" FontSize="19" /><TextBlock Text="Social" Style="{StaticResource CaptionTextBlockStyle}" HorizontalAlignment="Center" /></StackPanel>
+                                </Button>
+                                <Button x:Name="TabMulti" Tag="multitask" Style="{StaticResource TabButtonStyle}" Click="Tab_Click" AutomationProperties.Name="Apps">
+                                    <StackPanel Spacing="2"><FontIcon Glyph="&#xE7C4;" FontSize="19" /><TextBlock Text="Apps" Style="{StaticResource CaptionTextBlockStyle}" HorizontalAlignment="Center" /></StackPanel>
+                                </Button>
+                                <Button x:Name="TabWidgets" Tag="widgets" Style="{StaticResource TabButtonStyle}" Click="Tab_Click" AutomationProperties.Name="Widgets">
+                                    <StackPanel Spacing="2"><FontIcon Glyph="&#xF0E2;" FontSize="19" /><TextBlock Text="Widgets" Style="{StaticResource CaptionTextBlockStyle}" HorizontalAlignment="Center" /></StackPanel>
+                                </Button>
                             </StackPanel>
-                            <TextBlock x:Name="ClockText" Style="{StaticResource BodyStrongTextBlockStyle}" VerticalAlignment="Center" />
+                        </Grid>
+                    </Border>
+
+                    <Border x:Name="BatteryChip" Grid.Column="2" Style="{StaticResource GlassSurface}" CornerRadius="22" Padding="14,8"
+                            HorizontalAlignment="Right" VerticalAlignment="Center" Visibility="Collapsed">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon x:Name="BatteryGlyph" Glyph="&#xE7FC;" FontSize="17" />
+                            <TextBlock x:Name="BatteryText" Style="{StaticResource BodyTextBlockStyle}" VerticalAlignment="Center" />
                         </StackPanel>
+                    </Border>
+                </Grid>
+
+                <!-- Content glass -->
+                <Border x:Name="ContentGlass" Grid.Row="1" Height="330" Background="{StaticResource GlassPanelFill}"
+                        BorderBrush="{StaticResource GlassRim}" BorderThickness="1" CornerRadius="36" Padding="22,16,22,18">
+                    <Grid RowSpacing="10">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <!-- Only sub-pages have a title; on tabs the pill already says where you are -->
+                        <StackPanel x:Name="SubHeader" Orientation="Horizontal" Spacing="10" Visibility="Collapsed">
+                            <Button Style="{StaticResource IconButtonStyle}" Background="{StaticResource GlassFill}" Click="Back_Click" AutomationProperties.Name="Back">
+                                <FontIcon Glyph="&#xE72B;" FontSize="15" />
+                            </Button>
+                            <TextBlock x:Name="TitleText" Style="{StaticResource SubtitleTextBlockStyle}" VerticalAlignment="Center" />
+                        </StackPanel>
+                        <ContentControl x:Name="ContentHost" Grid.Row="1" IsTabStop="False"
+                                        HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
+                            <ContentControl.ContentTransitions>
+                                <TransitionCollection>
+                                    <ContentThemeTransition HorizontalOffset="36" VerticalOffset="0" />
+                                </TransitionCollection>
+                            </ContentControl.ContentTransitions>
+                        </ContentControl>
                     </Grid>
+                </Border>
 
-                    <!-- Sub-page title (More settings and similar) -->
-                    <StackPanel x:Name="SubHeader" Grid.Row="1" Orientation="Horizontal" Spacing="8" Visibility="Collapsed" Margin="0,6,0,0">
-                        <Button Style="{StaticResource IconButtonStyle}" Click="Back_Click" AutomationProperties.Name="Back">
-                            <FontIcon Glyph="&#xE72B;" FontSize="16" />
-                        </Button>
-                        <TextBlock x:Name="TitleText" Style="{StaticResource SubtitleTextBlockStyle}" VerticalAlignment="Center" />
-                    </StackPanel>
-
-                    <ContentControl x:Name="ContentHost" Grid.Row="2" IsTabStop="False" Margin="4,8,0,0"
-                                    HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
-                        <ContentControl.ContentTransitions>
-                            <TransitionCollection>
-                                <ContentThemeTransition HorizontalOffset="28" VerticalOffset="0" />
-                            </TransitionCollection>
-                        </ContentControl.ContentTransitions>
-                    </ContentControl>
-
-                    <!-- Controller hints, with the Windows gamepad glyphs -->
-                    <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="20" HorizontalAlignment="Right"
-                                Opacity="0.78">
+                <!-- Controller hints, with the Windows gamepad glyphs -->
+                <Border x:Name="HintPill" Grid.Row="2" Style="{StaticResource GlassSurface}" CornerRadius="20" Padding="18,7" HorizontalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="20">
                         <StackPanel Orientation="Horizontal" Spacing="6">
-                            <FontIcon Glyph="&#xF10C;" FontSize="18" />
-                            <FontIcon Glyph="&#xF10D;" FontSize="18" />
-                            <TextBlock Text="Switch tab" Style="{StaticResource CaptionTextBlockStyle}" VerticalAlignment="Center" />
+                            <FontIcon Glyph="&#xF10C;" FontSize="19" />
+                            <FontIcon Glyph="&#xF10D;" FontSize="19" />
+                            <TextBlock Text="Tabs" Style="{StaticResource BodyTextBlockStyle}" VerticalAlignment="Center" />
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" Spacing="6">
-                            <FontIcon Glyph="&#xF093;" FontSize="18" />
-                            <TextBlock Text="Select" Style="{StaticResource CaptionTextBlockStyle}" VerticalAlignment="Center" />
+                            <FontIcon Glyph="&#xF093;" FontSize="19" Foreground="#FF6FD36F" />
+                            <TextBlock Text="Select" Style="{StaticResource BodyTextBlockStyle}" VerticalAlignment="Center" />
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" Spacing="6">
-                            <FontIcon Glyph="&#xF094;" FontSize="18" />
-                            <TextBlock Text="Back" Style="{StaticResource CaptionTextBlockStyle}" VerticalAlignment="Center" />
+                            <FontIcon Glyph="&#xF094;" FontSize="19" Foreground="#FFFF6B6B" />
+                            <TextBlock Text="Back" Style="{StaticResource BodyTextBlockStyle}" VerticalAlignment="Center" />
                         </StackPanel>
                         <StackPanel x:Name="YHint" Orientation="Horizontal" Spacing="6" Visibility="Collapsed">
-                            <FontIcon Glyph="&#xF095;" FontSize="18" />
-                            <TextBlock x:Name="YHintText" Style="{StaticResource CaptionTextBlockStyle}" VerticalAlignment="Center" />
+                            <FontIcon Glyph="&#xF095;" FontSize="19" Foreground="#FFFFD24A" />
+                            <TextBlock x:Name="YHintText" Style="{StaticResource BodyTextBlockStyle}" VerticalAlignment="Center" />
                         </StackPanel>
                     </StackPanel>
-                </Grid>
+                </Border>
             </Grid>
         </Viewbox>
     </Grid>

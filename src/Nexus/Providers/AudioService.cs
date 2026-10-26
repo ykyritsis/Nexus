@@ -96,6 +96,7 @@ public sealed class AudioService
             else
             {
                 uint pid = s.GetProcessID;
+                if (pid == (uint)Environment.ProcessId) continue; // Nexus's own navigation sounds
                 var path = Native.ProcessPath(pid);
                 var key = path is null ? $"pid{pid}" : Path.GetFileNameWithoutExtension(path);
                 if (!apps.TryGetValue(key, out app!))
