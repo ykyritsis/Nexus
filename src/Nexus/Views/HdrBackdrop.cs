@@ -161,7 +161,22 @@ public sealed class HdrBackdrop : IDisposable
         _surface = null;
     }
 
+    // A capture item per monitor is reused across opens; it's dropped if the monitor goes away.
+    static readonly Dictionary<IntPtr, GraphicsCaptureItem> Items = new();
+
     static GraphicsCaptureItem? ItemForMonitor(IntPtr monitor)
+    {
+        if (Items.TryGetValue(monitor, out var cached)) return cached;
+        var item = CreateItem(monitor);
+        if (item != null)
+        {
+            Items[monitor] = item;
+            item.Closed += (_, _) => { lock (Items) Items.Remove(monitor); };
+        }
+        return item;
+    }
+
+    static GraphicsCaptureItem? CreateItem(IntPtr monitor)
     {
         var interop = GraphicsCaptureItem.As<IGraphicsCaptureItemInterop>();
         var iid = CaptureItemIid;
