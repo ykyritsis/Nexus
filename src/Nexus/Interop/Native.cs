@@ -47,6 +47,11 @@ internal static class Native
         return sb.ToString();
     }
 
+    /// <summary>The monitor a window is on (or the primary one).</summary>
+    public static IntPtr MonitorHandle(IntPtr hWnd) => hWnd != IntPtr.Zero
+        ? MonitorFromWindow(hWnd, MONITOR_DEFAULTTONEAREST)
+        : MonitorFromPoint(new POINT(), MONITOR_DEFAULTTOPRIMARY);
+
     /// <summary>Full bounds and scale of the monitor a window is on (or the primary one).</summary>
     public static (RECT bounds, double scale) MonitorOf(IntPtr hWnd)
     {

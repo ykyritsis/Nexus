@@ -52,7 +52,10 @@
 
         <!-- A light vignette over the blur; clicking it closes the overlay -->
         <!-- A still, blurred frame of the screen taken as the overlay opens (see ScreenBlur) -->
-        <Image x:Name="Backdrop" Stretch="Fill" Opacity="0" IsHitTestVisible="False" />
+        <Grid x:Name="Backdrop" Opacity="0" IsHitTestVisible="False">
+            <!-- SDR fallback; the HDR frame is a composition visual on top of this grid (HdrBackdrop) -->
+            <Image x:Name="BackdropImage" Stretch="Fill" />
+        </Grid>
 
         <Rectangle x:Name="Scrim" PointerPressed="Scrim_PointerPressed">
             <Rectangle.Fill>

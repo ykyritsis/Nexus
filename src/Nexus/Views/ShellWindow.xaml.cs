@@ -89,6 +89,7 @@ public sealed partial class ShellWindow : Window
         _trim.Tick += (_, _) =>
         {
             if (_visible) return;
+            _hdr?.Release(); // the GPU frame is re-captured on the next open anyway
             GC.Collect(GC.MaxGeneration, GCCollectionMode.Optimized, blocking: false, compacting: true);
             Native.TrimWorkingSet();
         };
@@ -257,11 +258,26 @@ public sealed partial class ShellWindow : Window
 
     public void Toggle(long pressedAt = -1)
     {
+        if (_opening) return;
         if (_visible) Hide();
         else Show(pressedAt: pressedAt);
     }
 
-    public void Show(string? tab = null, long pressedAt = -1)
+    public void Show(string? tab = null, long pressedAt = -1) => _ = ShowAsync(tab, pressedAt);
+
+    bool _opening;
+
+    /// <summary>Captures the frame behind, then shows the overlay. A press while it's opening is ignored.</summary>
+    public async Task ShowAsync(string? tab = null, long pressedAt = -1)
+    {
+        if (_visible) { if (tab != null) SelectTab(tab, focus: true); return; }
+        if (_opening) return;
+        _opening = true;
+        try { await OpenAsync(tab, pressedAt); }
+        finally { _opening = false; }
+    }
+
+    async Task OpenAsync(string? tab, long pressedAt)
     {
         _pressedAt = pressedAt;
         var fg = Native.GetForegroundWindow();
@@ -270,7 +286,7 @@ public sealed partial class ShellWindow : Window
         HideStory.Stop();
         Place(_previousForeground);
         // Reopened while still fading out: the window is still up, keep the frame we already have.
-        if (!AppWindow.IsVisible) UpdateBackdrop();
+        if (!AppWindow.IsVisible) await UpdateBackdropAsync();
         // Like a console guide: reopen on the tab you left, but not deep inside one of its sub-pages.
         if (tab != null || _subPages.Count > 0) SelectTab(tab ?? _tab, focus: false);
         _visible = true;
@@ -341,22 +357,47 @@ public sealed partial class ShellWindow : Window
     Native.RECT _monitor;
     WriteableBitmap? _backdrop;
 
-    /// <summary>Grabs and blurs the screen behind the overlay (before the overlay is shown).</summary>
-    void UpdateBackdrop()
+    HdrBackdrop? _hdr;
+    int _hdrFailures;
+
+    /// <summary>
+    /// Grabs and blurs the screen behind the overlay, before the overlay is shown. HDR-aware capture
+    /// first (keeps HDR brightness); GDI (8-bit SDR) if that isn't available or fails.
+    /// </summary>
+    async Task UpdateBackdropAsync()
     {
         var clock = System.Diagnostics.Stopwatch.StartNew();
-        var shot = ScreenBlur.Capture(_monitor);
-        if (shot is not { } s)
+        bool hdr = false;
+        if (_hdrFailures < 3 && HdrBackdrop.Supported)
         {
-            Backdrop.Source = null;
-            return;
+            try
+            {
+                _hdr ??= new HdrBackdrop(Backdrop);
+                hdr = await _hdr.CaptureAsync(Native.MonitorHandle(_previousForeground), TimeSpan.FromMilliseconds(250));
+            }
+            catch (Exception ex) { Log.Warn($"HDR backdrop unavailable: {ex.Message}"); }
+            _hdrFailures = hdr ? 0 : _hdrFailures + 1;
         }
-        if (_backdrop is null || _backdrop.PixelWidth != s.width || _backdrop.PixelHeight != s.height)
-            _backdrop = new WriteableBitmap(s.width, s.height);
-        using (var stream = _backdrop.PixelBuffer.AsStream()) stream.Write(s.pixels, 0, s.pixels.Length);
-        _backdrop.Invalidate();
-        Backdrop.Source = _backdrop;
-        if (clock.ElapsedMilliseconds > 30) Log.Info($"backdrop took {clock.ElapsedMilliseconds} ms");
+        if (hdr)
+        {
+            BackdropImage.Visibility = Visibility.Collapsed;
+        }
+        else
+        {
+            _hdr?.Hide();
+            var shot = ScreenBlur.Capture(_monitor);
+            if (shot is { } s)
+            {
+                if (_backdrop is null || _backdrop.PixelWidth != s.width || _backdrop.PixelHeight != s.height)
+                    _backdrop = new WriteableBitmap(s.width, s.height);
+                using (var stream = _backdrop.PixelBuffer.AsStream()) stream.Write(s.pixels, 0, s.pixels.Length);
+                _backdrop.Invalidate();
+                BackdropImage.Source = _backdrop;
+            }
+            else BackdropImage.Source = null;
+            BackdropImage.Visibility = Visibility.Visible;
+        }
+        if (clock.ElapsedMilliseconds > 40) Log.Info($"backdrop ({(hdr ? "HDR" : "GDI")}) took {clock.ElapsedMilliseconds} ms");
     }
 
     void Place(IntPtr near)

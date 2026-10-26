@@ -63,7 +63,7 @@ public partial class App : Application
         var tray = new TrayIcon(_shell.Hwnd, Path.Combine(AppContext.BaseDirectory, "Assets", "nexus.ico"),
             "Nexus: press the Guide button",
             ("Open Nexus", () => _shell.Show()),
-            ("More settings", () => { _shell.Show("settings"); _shell.OpenSubPage(new MoreSettingsView(this)); }),
+            ("More settings", async () => { await _shell.ShowAsync("settings"); _shell.OpenSubPage(new MoreSettingsView(this)); }),
             ("Open log folder", () => Launch.Open(Log.Folder)),
             ("-", () => { }),
             ("Quit Nexus", Quit));
