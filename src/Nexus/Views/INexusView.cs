@@ -18,4 +18,10 @@ public interface INexusView
 
     /// <summary>Label for the Y hint, or null to hide it.</summary>
     string? YHint => null;
+
+    /// <summary>X button on the focused element. Return true if handled.</summary>
+    bool HandleX(DependencyObject? focused) => false;
+
+    /// <summary>Label for the X hint, or null to hide it.</summary>
+    string? XHint => null;
 }

@@ -283,6 +283,8 @@ public sealed partial class ShellWindow : Window
         SubHeader.Visibility = _subPages.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         YHint.Visibility = view?.YHint is null ? Visibility.Collapsed : Visibility.Visible;
         YHintText.Text = view?.YHint ?? "";
+        XHint.Visibility = view?.XHint is null ? Visibility.Collapsed : Visibility.Visible;
+        XHintText.Text = view?.XHint ?? "";
         if (_visible) view?.OnShown();
     }
 

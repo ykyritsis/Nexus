@@ -15,7 +15,7 @@ namespace Nexus.Views;
 public sealed class SocialView : UserControl, INexusView
 {
     readonly ShellWindow _shell;
-    readonly StackPanel _cards = new() { Orientation = Orientation.Horizontal, Spacing = 14, VerticalAlignment = VerticalAlignment.Center };
+    readonly StackPanel _cards = new() { Orientation = Orientation.Horizontal, Spacing = 10, VerticalAlignment = VerticalAlignment.Center };
     readonly TextBlock _summary, _empty;
     readonly Dictionary<Button, Friend> _byCard = new();
     DateTime _loadedAt;
@@ -95,28 +95,28 @@ public sealed class SocialView : UserControl, INexusView
         };
         var avatar = new Border
         {
-            Width = 76, Height = 76, CornerRadius = new CornerRadius(38), HorizontalAlignment = HorizontalAlignment.Center,
-            BorderBrush = new SolidColorBrush(dot), BorderThickness = new Thickness(3),
+            Width = 56, Height = 56, CornerRadius = new CornerRadius(28), HorizontalAlignment = HorizontalAlignment.Center,
+            BorderBrush = new SolidColorBrush(dot), BorderThickness = new Thickness(2.5),
             Background = f.AvatarUrl is null ? (Brush)Res["IconCircleBrush"]
-                : new ImageBrush { ImageSource = new BitmapImage(new Uri(f.AvatarUrl)) { DecodePixelWidth = 152 }, Stretch = Stretch.UniformToFill },
+                : new ImageBrush { ImageSource = new BitmapImage(new Uri(f.AvatarUrl)) { DecodePixelWidth = 112 }, Stretch = Stretch.UniformToFill },
             Opacity = f.Presence == Presence.Offline ? 0.55 : 1,
         };
         var name = new TextBlock
         {
-            Text = f.Name, Style = (Style)Res["BodyStrongTextBlockStyle"], TextTrimming = TextTrimming.CharacterEllipsis,
-            HorizontalAlignment = HorizontalAlignment.Center, MaxWidth = 140,
+            Text = f.Name, Style = (Style)Res["BodyStrongTextBlockStyle"], FontSize = 13, TextWrapping = TextWrapping.NoWrap, TextTrimming = TextTrimming.CharacterEllipsis,
+            HorizontalAlignment = HorizontalAlignment.Center, MaxWidth = 104,
         };
         var status = new TextBlock
         {
-            Text = f.Status, Style = (Style)Res["CaptionTextBlockStyle"], TextWrapping = TextWrapping.Wrap, MaxLines = 2,
-            TextAlignment = TextAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center, MaxWidth = 140,
+            Text = f.Status, Style = (Style)Res["CaptionTextBlockStyle"], FontSize = 11, TextTrimming = TextTrimming.CharacterEllipsis,
+            TextAlignment = TextAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center, MaxWidth = 104,
             Foreground = f.Presence == Presence.InGame ? new SolidColorBrush(dot) : (Brush)Res["SubtleTextBrush"],
         };
         var card = new Button
         {
-            Style = (Style)Res["TileStyle"], Width = 168, Height = 196, CornerRadius = new CornerRadius(26),
+            Style = (Style)Res["TileStyle"], Width = 122, Height = 140, CornerRadius = new CornerRadius(22), Padding = new Thickness(8),
             VerticalAlignment = VerticalAlignment.Center,
-            Content = new StackPanel { Spacing = 8, VerticalAlignment = VerticalAlignment.Center, Children = { avatar, name, status } },
+            Content = new StackPanel { Spacing = 5, VerticalAlignment = VerticalAlignment.Center, Children = { avatar, name, status } },
         };
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(card, $"Chat with {f.Name}, {f.Status}");
         card.Click += (_, _) => { _shell.Hide(restoreFocus: false); SteamFriends.Chat(f.SteamId64); };

@@ -15,7 +15,7 @@ namespace Nexus.Input;
 ///   A                   press, toggle, or open a drop-down
 ///   B                   close a drop-down, leave a sub-page, or close the overlay
 ///   LB / RB             previous / next tab
-///   Y                   page-specific (e.g. favourite in the volume mixer)
+///   X / Y               page-specific (e.g. X closes an app, Y favourites in the mixer)
 /// Runs on the UI thread.
 /// </summary>
 public sealed class PadNavigator
@@ -59,6 +59,7 @@ public sealed class PadNavigator
             case Pad.B: _shell.Back(); break;
             case Pad.LB: _shell.SwitchTab(-1); break;
             case Pad.RB: _shell.SwitchTab(+1); break;
+            case Pad.X: _shell.CurrentView?.HandleX(focused); break;
             case Pad.Y: _shell.CurrentView?.HandleY(focused); break;
         }
     }
