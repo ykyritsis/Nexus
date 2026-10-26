@@ -11,52 +11,25 @@
             </ResourceDictionary.MergedDictionaries>
 
             <!--
-                Liquid glass on top of Windows' own controls. Every glass surface is three layers:
-                  fill   a faint white gradient, brighter at the top like light on curved glass
-                  rim    a 1px gradient border, bright top-left and bottom-right (the specular edge)
-                  blur   the window's acrylic backdrop underneath does the frosting
-                Accents follow the Windows accent colour; text uses the Windows type ramp.
+                Smoked glass, flat and quiet: translucent fills over the window's blur, one even hairline
+                edge, no gloss or glints. Small pieces are lighter glass; the panel and floating chips are
+                darker so text holds over bright games. Text is Inter.
             -->
-            <SolidColorBrush x:Key="AccentBrush" Color="{ThemeResource SystemAccentColorLight2}" />
+            <FontFamily x:Key="NexusFont">ms-appx:///Assets/Fonts/InterVariable.ttf#Inter Variable</FontFamily>
+            <FontFamily x:Key="ContentControlThemeFontFamily">ms-appx:///Assets/Fonts/InterVariable.ttf#Inter Variable</FontFamily>
+            <SolidColorBrush x:Key="AccentBrush" Color="#FFFFFFFF" />
 
-            <LinearGradientBrush x:Key="GlassFill" StartPoint="0,0" EndPoint="0,1">
-                <!-- light at the top edge, a little shade lower down so white text holds over bright scenes -->
-                <GradientStop Color="#38FFFFFF" Offset="0" />
-                <GradientStop Color="#0AFFFFFF" Offset="0.4" />
-                <GradientStop Color="#2B0A0E18" Offset="1" />
-            </LinearGradientBrush>
-            <!-- The big panel: a touch darker than the small pieces so text reads over bright scenes -->
-            <LinearGradientBrush x:Key="GlassPanelFill" StartPoint="0,0" EndPoint="0,1">
-                <GradientStop Color="#40505A6E" Offset="0" />
-                <GradientStop Color="#4D262B38" Offset="0.35" />
-                <GradientStop Color="#591A1E28" Offset="1" />
-            </LinearGradientBrush>
-            <LinearGradientBrush x:Key="GlassRim" StartPoint="0,0" EndPoint="1,1">
-                <GradientStop Color="#99FFFFFF" Offset="0" />
-                <GradientStop Color="#26FFFFFF" Offset="0.22" />
-                <GradientStop Color="#0AFFFFFF" Offset="0.55" />
-                <GradientStop Color="#1AFFFFFF" Offset="0.8" />
-                <GradientStop Color="#59FFFFFF" Offset="1" />
-            </LinearGradientBrush>
-            <LinearGradientBrush x:Key="LensFill" StartPoint="0,0" EndPoint="0,1">
-                <GradientStop Color="#40FFFFFF" Offset="0" />
-                <GradientStop Color="#140A0E18" Offset="0.6" />
-                <GradientStop Color="#2EFFFFFF" Offset="1" />
-            </LinearGradientBrush>
-            <LinearGradientBrush x:Key="LensRim" StartPoint="0,0" EndPoint="0,1">
-                <GradientStop Color="#CCFFFFFF" Offset="0" />
-                <GradientStop Color="#33FFFFFF" Offset="0.5" />
-                <GradientStop Color="#80FFFFFF" Offset="1" />
-            </LinearGradientBrush>
-            <!-- "On" tiles: bright frosted white, like Control Center -->
-            <LinearGradientBrush x:Key="ActiveFill" StartPoint="0,0" EndPoint="0,1">
-                <GradientStop Color="#FAFFFFFF" Offset="0" />
-                <GradientStop Color="#E6E8EEF7" Offset="1" />
-            </LinearGradientBrush>
+            <SolidColorBrush x:Key="GlassFill" Color="#17FFFFFF" />
+            <SolidColorBrush x:Key="GlassPanelFill" Color="#5C111318" />
+            <SolidColorBrush x:Key="GlassRim" Color="#24FFFFFF" />
+            <SolidColorBrush x:Key="LensFill" Color="#2EFFFFFF" />
+            <SolidColorBrush x:Key="LensRim" Color="#33FFFFFF" />
+            <!-- "On" tiles: solid frosted white, like Control Center -->
+            <SolidColorBrush x:Key="ActiveFill" Color="#F2FFFFFF" />
             <SolidColorBrush x:Key="ActiveForeground" Color="#FF12151C" />
             <SolidColorBrush x:Key="IdleForeground" Color="#FFFFFFFF" />
-            <SolidColorBrush x:Key="SubtleTextBrush" Color="#B3FFFFFF" />
-            <SolidColorBrush x:Key="IconCircleBrush" Color="#26FFFFFF" />
+            <SolidColorBrush x:Key="SubtleTextBrush" Color="#A6FFFFFF" />
+            <SolidColorBrush x:Key="IconCircleBrush" Color="#1FFFFFFF" />
 
             <!-- Glass-friendly control colours -->
             <SolidColorBrush x:Key="SliderTrackFill" Color="#33FFFFFF" />
@@ -120,8 +93,7 @@
                 <Setter Property="Padding" Value="0" />
                 <Setter Property="CornerRadius" Value="26" />
                 <Setter Property="Background" Value="{StaticResource GlassFill}" />
-                <Setter Property="BorderBrush" Value="{StaticResource GlassRim}" />
-                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="BorderThickness" Value="0" />
                 <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                 <Setter Property="VerticalContentAlignment" Value="Stretch" />
                 <Setter Property="FocusVisualMargin" Value="-5" />
@@ -150,11 +122,7 @@
             </Style>
 
             <!-- Small floating pieces (clock, tabs, hints) carry a little more shade: they sit on the game directly -->
-            <LinearGradientBrush x:Key="GlassChipFill" StartPoint="0,0" EndPoint="0,1">
-                <GradientStop Color="#3DFFFFFF" Offset="0" />
-                <GradientStop Color="#33101420" Offset="0.45" />
-                <GradientStop Color="#4D101420" Offset="1" />
-            </LinearGradientBrush>
+            <SolidColorBrush x:Key="GlassChipFill" Color="#6B111318" />
 
             <Style x:Key="GlassSurface" TargetType="Border">
                 <Setter Property="Background" Value="{StaticResource GlassFill}" />

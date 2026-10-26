@@ -222,17 +222,19 @@ public sealed partial class HomeView : UserControl, INexusView
         var visual = ElementCompositionPreview.GetElementVisual(tile);
         visual.CenterPoint = new Vector3((float)tile.ActualWidth / 2, (float)tile.ActualHeight / 2, 0);
         var anim = visual.Compositor.CreateVector3KeyFrameAnimation();
-        var spring = visual.Compositor.CreateCubicBezierEasingFunction(new Vector2(0.34f, 1.56f), new Vector2(0.64f, 1f));
+        var spring = visual.Compositor.CreateCubicBezierEasingFunction(new Vector2(0.2f, 0.9f), new Vector2(0.3f, 1f));
         anim.InsertKeyFrame(1f, up ? new Vector3(1.07f, 1.07f, 1) : Vector3.One, spring);
-        anim.Duration = TimeSpan.FromMilliseconds(up ? 380 : 220);
+        anim.Duration = TimeSpan.FromMilliseconds(up ? 200 : 160);
         visual.StartAnimation("Scale", anim);
     }
 
     async Task<Grid> TileArtAsync(GameEntry game, double size, ConsoleArt.Found? console)
     {
         var layers = new Grid();
-        var picture = new Border { CornerRadius = new CornerRadius(25), Background = new SolidColorBrush(Color.FromArgb(255, 34, 38, 50)) };
+        var picture = new Border { CornerRadius = new CornerRadius(26), Background = new SolidColorBrush(Color.FromArgb(255, 34, 38, 50)) };
         layers.Children.Add(picture);
+        // A faint inner hairline on top keeps the tile's shape on very light art without framing it.
+        var edge = new Border { CornerRadius = new CornerRadius(26), BorderThickness = new Thickness(1), BorderBrush = new SolidColorBrush(Color.FromArgb(0x1F, 0, 0, 0)), IsHitTestVisible = false };
 
         string? scene = game.Art.Hero ?? console?.Hero;
         string? logo = game.Art.Logo;
@@ -246,7 +248,7 @@ public sealed partial class HomeView : UserControl, INexusView
             var shade = new RadialGradientBrush { Center = new(0.5, 0.5), GradientOrigin = new(0.5, 0.5), RadiusX = 0.6, RadiusY = 0.6 };
             shade.GradientStops.Add(new GradientStop { Color = Color.FromArgb(70, 0, 0, 0), Offset = 0 });
             shade.GradientStops.Add(new GradientStop { Color = Color.FromArgb(0, 0, 0, 0), Offset = 1 });
-            layers.Children.Add(new Border { CornerRadius = new CornerRadius(25), Background = shade });
+            layers.Children.Add(new Border { CornerRadius = new CornerRadius(26), Background = shade });
             if (await Icons.LoadAsync(logo, 800) is { } logoImg)
                 layers.Children.Add(new Image
                 {
@@ -279,6 +281,7 @@ public sealed partial class HomeView : UserControl, INexusView
             _moods[game.Key] = mood;
             if (Tiles.Children.Count > 0 && FocusTitle.Text == game.Name && RecentGrid.Visibility == Visibility.Visible) _shell.SetAmbient(mood);
         }
+        layers.Children.Add(edge);
         return layers;
     }
 

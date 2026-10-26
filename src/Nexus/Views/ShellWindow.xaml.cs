@@ -100,7 +100,7 @@ public sealed partial class ShellWindow : Window
     // Instead of Windows' focus outline (which jumps, and whose corners don't follow ours), one ring
     // glides between controls on the compositor thread, with an even gap and matching rounded corners.
 
-    const float RingGap = 5, RingStroke = 3;
+    const float RingGap = 5, RingStroke = 2.5f;
     ShapeVisual? _ring;
     CompositionRoundedRectangleGeometry? _ringShape;
     ScrollViewer? _ringScroller;
@@ -110,21 +110,23 @@ public sealed partial class ShellWindow : Window
     void SetupFocusRing()
     {
         var c = ElementCompositionPreview.GetElementVisual(FocusLayer).Compositor;
-        var accent = ((SolidColorBrush)Application.Current.Resources["AccentBrush"]).Color;
+        // A clean white ring, like current consoles: no coloured glow.
         _ringShape = c.CreateRoundedRectangleGeometry();
-        var glow = c.CreateSpriteShape(_ringShape);
-        glow.StrokeBrush = c.CreateColorBrush(Windows.UI.Color.FromArgb(70, accent.R, accent.G, accent.B));
-        glow.StrokeThickness = RingStroke + 6;
         var line = c.CreateSpriteShape(_ringShape);
-        line.StrokeBrush = c.CreateColorBrush(accent);
+        line.StrokeBrush = c.CreateColorBrush(Windows.UI.Color.FromArgb(0xF2, 0xFF, 0xFF, 0xFF));
         line.StrokeThickness = RingStroke;
         _ring = c.CreateShapeVisual();
         _ring.Size = new Vector2(4000, 2000); // bigger than the panel; shapes draw where they are
-        _ring.Shapes.Add(glow);
         _ring.Shapes.Add(line);
         _ring.Opacity = 0;
         ElementCompositionPreview.SetElementChildVisual(FocusLayer, _ring);
-        FocusManager.GotFocus += (_, e) => OnFocusMoved(e.NewFocusedElement as Control);
+        // An exception in this static focus event isn't routed to Application.UnhandledException; it
+        // takes the process down (STATUS_STOWED_EXCEPTION). The ring is cosmetic, so never let it throw.
+        FocusManager.GotFocus += (_, e) =>
+        {
+            try { OnFocusMoved(e.NewFocusedElement as Control); }
+            catch (Exception ex) { Log.Error("focus ring", ex); HideRingQuietly(); }
+        };
     }
 
     void OnFocusMoved(Control? target)
@@ -139,7 +141,11 @@ public sealed partial class ShellWindow : Window
         _ringTarget = target;
         TrackScroller(target);
         if (target.ActualWidth <= 0) // just created: wait for its layout
-            DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () => { if (_ringTarget == target) PlaceRing(target, animate: _ringShown); });
+            DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () =>
+            {
+                try { if (_ringTarget == target) PlaceRing(target, animate: _ringShown); }
+                catch (Exception ex) { Log.Error("focus ring", ex); HideRingQuietly(); }
+            });
         else PlaceRing(target, animate: _ringShown);
     }
 
@@ -154,6 +160,9 @@ public sealed partial class ShellWindow : Window
         double w = r.Width * lift + RingGap * 2, h = r.Height * lift + RingGap * 2;
         double x = r.X - (r.Width * (lift - 1) / 2) - RingGap, y = r.Y - (r.Height * (lift - 1) / 2) - RingGap;
         double radius = Math.Min(target.CornerRadius.TopLeft * lift + RingGap, Math.Min(w, h) / 2);
+        // Composition rejects NaN, infinite or negative sizes with E_INVALIDARG; skip such layouts.
+        if (!double.IsFinite(x) || !double.IsFinite(y) || !double.IsFinite(w) || !double.IsFinite(h) || w <= 0 || h <= 0) return;
+        if (!double.IsFinite(radius) || radius < 0) radius = 0;
         var offset = new Vector2((float)x, (float)y);
         var size = new Vector2((float)w, (float)h);
         var corner = new Vector2((float)radius);
@@ -175,7 +184,7 @@ public sealed partial class ShellWindow : Window
             {
                 var a = c.CreateVector2KeyFrameAnimation();
                 a.InsertKeyFrame(1f, to, ease);
-                a.Duration = TimeSpan.FromMilliseconds(240);
+                a.Duration = TimeSpan.FromMilliseconds(170);
                 _ringShape.StartAnimation(property, a);
             }
             Glide("Offset", offset);
@@ -216,7 +225,13 @@ public sealed partial class ShellWindow : Window
 
     void Scroller_ViewChanged(object? sender, ScrollViewerViewChangedEventArgs e)
     {
-        if (_ringTarget != null && _ringShown) PlaceRing(_ringTarget, animate: false);
+        try { if (_ringTarget != null && _ringShown) PlaceRing(_ringTarget, animate: false); }
+        catch (Exception ex) { Log.Error("focus ring scroll", ex); HideRingQuietly(); }
+    }
+
+    void HideRingQuietly()
+    {
+        try { HideRing(); } catch { }
     }
 
     // ---------------- show / hide ----------------
@@ -365,8 +380,8 @@ public sealed partial class ShellWindow : Window
         var anim = new DoubleAnimation
         {
             To = x,
-            Duration = TimeSpan.FromMilliseconds(320),
-            EasingFunction = new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.35 },
+            Duration = TimeSpan.FromMilliseconds(200),
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
         };
         Storyboard.SetTarget(anim, LensSlide);
         Storyboard.SetTargetProperty(anim, "X");
@@ -491,27 +506,30 @@ public sealed partial class ShellWindow : Window
         }
     }
 
-    /// <summary>Tints the glow behind the panel, e.g. with the focused game's colour.</summary>
+    /// <summary>Tints the glow behind the panel, e.g. with the focused game's colour (a crossfade).</summary>
     public void SetAmbient(Windows.UI.Color color)
     {
+        if (color == _ambient) return;
+        _ambient = color;
+        bool toB = AmbientA.Opacity >= 0.5;
+        var (show, hide) = toB ? (AmbientB, AmbientA) : (AmbientA, AmbientB);
+        var (inner, mid) = toB ? (AmbientBInner, AmbientBMid) : (AmbientAInner, AmbientAMid);
+        inner.Color = Windows.UI.Color.FromArgb(0x3A, color.R, color.G, color.B);
+        mid.Color = Windows.UI.Color.FromArgb(0x14, color.R, color.G, color.B);
         var sb = new Storyboard();
-        void Fade(GradientStop stop, byte alpha)
+        void Fade(UIElement e, double to)
         {
-            var anim = new ColorAnimation
-            {
-                To = Windows.UI.Color.FromArgb(alpha, color.R, color.G, color.B),
-                Duration = TimeSpan.FromMilliseconds(600),
-                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
-                EnableDependentAnimation = true,
-            };
-            Storyboard.SetTarget(anim, stop);
-            Storyboard.SetTargetProperty(anim, "Color");
+            var anim = new DoubleAnimation { To = to, Duration = TimeSpan.FromMilliseconds(450) };
+            Storyboard.SetTarget(anim, e);
+            Storyboard.SetTargetProperty(anim, "Opacity");
             sb.Children.Add(anim);
         }
-        Fade(AmbientInner, 0x50);
-        Fade(AmbientMid, 0x1C);
+        Fade(show, 1);
+        Fade(hide, 0);
         sb.Begin();
     }
+
+    Windows.UI.Color _ambient;
 
     /// <summary>Re-applies size settings (compact mode) while open.</summary>
     public void Relayout()

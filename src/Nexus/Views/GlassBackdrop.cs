@@ -19,7 +19,7 @@ public sealed class GlassBackdrop : SystemBackdrop
 
     /// <param name="tint">How much of the dark tint covers the blur (the overlay uses very little).</param>
     /// <param name="luminosity">How much the blur is evened out.</param>
-    public GlassBackdrop(float tint = 0.08f, float luminosity = 0.18f)
+    public GlassBackdrop(float tint = 0.0f, float luminosity = 0.04f)
     {
         _tint = tint;
         _luminosity = luminosity;

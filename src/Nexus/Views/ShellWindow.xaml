@@ -14,23 +14,23 @@
             <!-- Decelerate in (fast start, soft landing), accelerate out. -->
             <Storyboard x:Name="ShowStory">
                 <DoubleAnimation Storyboard.TargetName="PanelTransform" Storyboard.TargetProperty="ScaleX"
-                                 From="0.9" To="1" Duration="0:0:0.42">
-                    <DoubleAnimation.EasingFunction><BackEase EasingMode="EaseOut" Amplitude="0.45" /></DoubleAnimation.EasingFunction>
+                                 From="0.96" To="1" Duration="0:0:0.22">
+                    <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut" /></DoubleAnimation.EasingFunction>
                 </DoubleAnimation>
                 <DoubleAnimation Storyboard.TargetName="PanelTransform" Storyboard.TargetProperty="ScaleY"
-                                 From="0.9" To="1" Duration="0:0:0.42">
-                    <DoubleAnimation.EasingFunction><BackEase EasingMode="EaseOut" Amplitude="0.45" /></DoubleAnimation.EasingFunction>
+                                 From="0.96" To="1" Duration="0:0:0.22">
+                    <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut" /></DoubleAnimation.EasingFunction>
                 </DoubleAnimation>
                 <DoubleAnimation Storyboard.TargetName="PanelTransform" Storyboard.TargetProperty="TranslateY"
-                                 From="26" To="0" Duration="0:0:0.42">
-                    <DoubleAnimation.EasingFunction><BackEase EasingMode="EaseOut" Amplitude="0.35" /></DoubleAnimation.EasingFunction>
+                                 From="10" To="0" Duration="0:0:0.22">
+                    <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut" /></DoubleAnimation.EasingFunction>
                 </DoubleAnimation>
                 <DoubleAnimation Storyboard.TargetName="Panel" Storyboard.TargetProperty="Opacity"
-                                 From="0" To="1" Duration="0:0:0.18" />
+                                 From="0" To="1" Duration="0:0:0.14" />
                 <DoubleAnimation Storyboard.TargetName="Scrim" Storyboard.TargetProperty="Opacity"
-                                 From="0" To="1" Duration="0:0:0.25" />
-                <DoubleAnimation Storyboard.TargetName="Ambient" Storyboard.TargetProperty="Opacity"
-                                 From="0" To="1" Duration="0:0:0.5" />
+                                 From="0" To="1" Duration="0:0:0.18" />
+                <DoubleAnimation Storyboard.TargetName="AmbientLayers" Storyboard.TargetProperty="Opacity"
+                                 From="0" To="1" Duration="0:0:0.3" />
             </Storyboard>
             <Storyboard x:Name="HideStory">
                 <DoubleAnimation Storyboard.TargetName="PanelTransform" Storyboard.TargetProperty="ScaleX"
@@ -41,7 +41,7 @@
                                  To="0" Duration="0:0:0.15" />
                 <DoubleAnimation Storyboard.TargetName="Scrim" Storyboard.TargetProperty="Opacity"
                                  To="0" Duration="0:0:0.15" />
-                <DoubleAnimation Storyboard.TargetName="Ambient" Storyboard.TargetProperty="Opacity"
+                <DoubleAnimation Storyboard.TargetName="AmbientLayers" Storyboard.TargetProperty="Opacity"
                                  To="0" Duration="0:0:0.15" />
             </Storyboard>
         </Grid.Resources>
@@ -51,22 +51,34 @@
             <Rectangle.Fill>
                 <RadialGradientBrush Center="0.5,0.5" GradientOrigin="0.5,0.5" RadiusX="0.8" RadiusY="0.8">
                     <GradientStop Color="#00000000" Offset="0" />
-                    <GradientStop Color="#05000000" Offset="0.5" />
-                    <GradientStop Color="#47000000" Offset="1" />
+                    <GradientStop Color="#00000000" Offset="0.5" />
+                    <GradientStop Color="#2E000000" Offset="1" />
                 </RadialGradientBrush>
             </Rectangle.Fill>
         </Rectangle>
 
-        <!-- Ambient glow behind the panel, tinted by the focused game's art -->
-        <Rectangle x:Name="Ambient" IsHitTestVisible="False">
-            <Rectangle.Fill>
-                <RadialGradientBrush Center="0.5,0.52" GradientOrigin="0.5,0.52" RadiusX="0.42" RadiusY="0.5">
-                    <GradientStop x:Name="AmbientInner" Color="#445AC8FA" Offset="0" />
-                    <GradientStop x:Name="AmbientMid" Color="#185AC8FA" Offset="0.55" />
-                    <GradientStop Color="#005AC8FA" Offset="1" />
-                </RadialGradientBrush>
-            </Rectangle.Fill>
-        </Rectangle>
+        <!-- Ambient glow behind the panel, tinted by the focused game's art. Two layers: a new colour fades
+             in on one while the other fades out (opacity animations run on the compositor, so they stay smooth). -->
+        <Grid x:Name="AmbientLayers" IsHitTestVisible="False">
+            <Rectangle x:Name="AmbientA">
+                <Rectangle.Fill>
+                    <RadialGradientBrush Center="0.5,0.52" GradientOrigin="0.5,0.52" RadiusX="0.42" RadiusY="0.5">
+                        <GradientStop x:Name="AmbientAInner" Color="#3A5AC8FA" Offset="0" />
+                        <GradientStop x:Name="AmbientAMid" Color="#145AC8FA" Offset="0.55" />
+                        <GradientStop Color="#005AC8FA" Offset="1" />
+                    </RadialGradientBrush>
+                </Rectangle.Fill>
+            </Rectangle>
+            <Rectangle x:Name="AmbientB" Opacity="0">
+                <Rectangle.Fill>
+                    <RadialGradientBrush Center="0.5,0.52" GradientOrigin="0.5,0.52" RadiusX="0.42" RadiusY="0.5">
+                        <GradientStop x:Name="AmbientBInner" Color="#3A5AC8FA" Offset="0" />
+                        <GradientStop x:Name="AmbientBMid" Color="#145AC8FA" Offset="0.55" />
+                        <GradientStop Color="#005AC8FA" Offset="1" />
+                    </RadialGradientBrush>
+                </Rectangle.Fill>
+            </Rectangle>
+        </Grid>
 
         <!-- Designed at a fixed size and scaled to fit, so it reads the same on a monitor or a TV. -->
         <Viewbox x:Name="PanelBox" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -167,17 +179,6 @@
                         </ContentControl>
                     </Grid>
                 </Border>
-
-                <!-- Specular highlight: light catching the top edge of the glass, brightest in the middle -->
-                <Rectangle Grid.Row="1" Height="1" Margin="56,0.5,56,0" VerticalAlignment="Top" IsHitTestVisible="False">
-                    <Rectangle.Fill>
-                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                            <GradientStop Color="#00FFFFFF" Offset="0" />
-                            <GradientStop Color="#B3FFFFFF" Offset="0.5" />
-                            <GradientStop Color="#00FFFFFF" Offset="1" />
-                        </LinearGradientBrush>
-                    </Rectangle.Fill>
-                </Rectangle>
 
                 <!-- Controller hints, with the Windows gamepad glyphs -->
                 <Border x:Name="HintPill" Grid.Row="2" Style="{StaticResource GlassSurface}" CornerRadius="16" Padding="16,6" HorizontalAlignment="Center" Background="{StaticResource GlassChipFill}">
