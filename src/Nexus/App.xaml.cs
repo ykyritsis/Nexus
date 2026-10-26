@@ -82,6 +82,7 @@ public partial class App : Application
     public void Quit()
     {
         Log.Info("quitting");
+        _shell?.PrepareToQuit();
         _hooks?.Dispose();
         Gamepad.Dispose();
         Exit();

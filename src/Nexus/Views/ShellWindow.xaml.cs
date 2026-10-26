@@ -288,9 +288,14 @@ public sealed partial class ShellWindow : Window
             Native.SetForegroundWindow(_previousForeground);
     }
 
+    bool _quitting;
+
+    /// <summary>Exiting: losing focus now must not start the hide animation on a window being torn down.</summary>
+    public void PrepareToQuit() => _quitting = true;
+
     void OnActivated(object sender, WindowActivatedEventArgs e)
     {
-        if (_warming) return;
+        if (_warming || _quitting) return;
         if (e.WindowActivationState == WindowActivationState.Deactivated)
         {
             // Another app took focus: get out of the way (ignoring the flicker right after opening).
