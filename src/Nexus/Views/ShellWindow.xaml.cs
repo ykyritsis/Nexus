@@ -3,6 +3,7 @@ using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
 using Nexus.Input;
 using Nexus.Interop;
@@ -25,7 +26,7 @@ public sealed partial class ShellWindow : Window
     readonly Dictionary<string, Button> _tabButtons;
     readonly Dictionary<string, FrameworkElement> _views = new();
     readonly Stack<FrameworkElement> _subPages = new();
-    readonly DispatcherQueueTimer _clock;
+    readonly DispatcherQueueTimer _clock, _trim;
 
     string _tab = "home";
     bool _visible, _warming;
@@ -72,6 +73,16 @@ public sealed partial class ShellWindow : Window
             if (e.Key == Windows.System.VirtualKey.Escape) { Back(); e.Handled = true; }
         };
         HideStory.Completed += (_, _) => { if (!_visible) AppWindow.Hide(); };
+        // While you play, give memory the overlay isn't using back to Windows (it pages back in on open).
+        _trim = DispatcherQueue.CreateTimer();
+        _trim.Interval = TimeSpan.FromSeconds(20);
+        _trim.IsRepeating = false;
+        _trim.Tick += (_, _) =>
+        {
+            if (_visible) return;
+            GC.Collect(GC.MaxGeneration, GCCollectionMode.Optimized, blocking: false, compacting: true);
+            Native.TrimWorkingSet();
+        };
         _clock = DispatcherQueue.CreateTimer();
         _clock.Interval = TimeSpan.FromSeconds(15);
         _clock.Tick += (_, _) => UpdateHeader();
@@ -139,6 +150,8 @@ public sealed partial class ShellWindow : Window
         ElementSoundPlayer.Play(ElementSoundKind.Hide);
         ShowStory.Stop();
         HideStory.Begin(); // the window itself hides when this finishes
+        _trim.Stop();
+        _trim.Start();
         // Hand focus straight back to the game.
         if (restoreFocus && _previousForeground != IntPtr.Zero && Native.IsWindow(_previousForeground))
             Native.SetForegroundWindow(_previousForeground);
@@ -232,15 +245,9 @@ public sealed partial class ShellWindow : Window
             "home" => new HomeView(_app, this),
             "settings" => new SettingsView(_app, this),
             "audio" => new AudioView(_app),
-            "social" => new PlaceholderView("Social", "",
-                "Friends and parties are coming",
-                "Steam friends first. Xbox friends need Microsoft sign-in that isn't open to other apps."),
-            "multitask" => new PlaceholderView("Apps", "",
-                "Switch between open apps",
-                "Live thumbnails, switch, close and force-close arrive with the next update."),
-            _ => new PlaceholderView("Widgets", "",
-                "Capture, Performance and Display",
-                "Screenshots and recording, an FPS and GPU monitor, and display controls arrive with the next update."),
+            "social" => new SocialView(this),
+            "multitask" => new AppsView(_app, this),
+            _ => new WidgetsView(_app, this),
         };
         _views[tab] = v;
         return v;
@@ -306,6 +313,28 @@ public sealed partial class ShellWindow : Window
             BatteryText.Text = b.wired ? "Wired" : b.level switch { 0 => "Empty", 1 => "Low", 2 => "Medium", _ => "Full" };
         }
         else BatteryChip.Visibility = Visibility.Collapsed;
+    }
+
+    /// <summary>Tints the glow behind the panel, e.g. with the focused game's colour.</summary>
+    public void SetAmbient(Windows.UI.Color color)
+    {
+        var sb = new Storyboard();
+        void Fade(GradientStop stop, byte alpha)
+        {
+            var anim = new ColorAnimation
+            {
+                To = Windows.UI.Color.FromArgb(alpha, color.R, color.G, color.B),
+                Duration = TimeSpan.FromMilliseconds(600),
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
+                EnableDependentAnimation = true,
+            };
+            Storyboard.SetTarget(anim, stop);
+            Storyboard.SetTargetProperty(anim, "Color");
+            sb.Children.Add(anim);
+        }
+        Fade(AmbientInner, 0x80);
+        Fade(AmbientMid, 0x30);
+        sb.Begin();
     }
 
     /// <summary>Re-applies size settings (compact mode) while open.</summary>

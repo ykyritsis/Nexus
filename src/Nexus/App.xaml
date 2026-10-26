@@ -20,15 +20,16 @@
             <SolidColorBrush x:Key="AccentBrush" Color="{ThemeResource SystemAccentColorLight2}" />
 
             <LinearGradientBrush x:Key="GlassFill" StartPoint="0,0" EndPoint="0,1">
-                <GradientStop Color="#2EFFFFFF" Offset="0" />
-                <GradientStop Color="#14FFFFFF" Offset="0.45" />
-                <GradientStop Color="#0CFFFFFF" Offset="1" />
+                <!-- light at the top edge, a little shade lower down so white text holds over bright scenes -->
+                <GradientStop Color="#38FFFFFF" Offset="0" />
+                <GradientStop Color="#0AFFFFFF" Offset="0.4" />
+                <GradientStop Color="#2B0A0E18" Offset="1" />
             </LinearGradientBrush>
-            <!-- The big panel is darker glass so it reads over bright scenes too -->
+            <!-- The big panel: a touch darker than the small pieces so text reads over bright scenes -->
             <LinearGradientBrush x:Key="GlassPanelFill" StartPoint="0,0" EndPoint="0,1">
-                <GradientStop Color="#523A404C" Offset="0" />
-                <GradientStop Color="#66181C24" Offset="0.3" />
-                <GradientStop Color="#7310131A" Offset="1" />
+                <GradientStop Color="#40505A6E" Offset="0" />
+                <GradientStop Color="#4D262B38" Offset="0.35" />
+                <GradientStop Color="#591A1E28" Offset="1" />
             </LinearGradientBrush>
             <LinearGradientBrush x:Key="GlassRim" StartPoint="0,0" EndPoint="1,1">
                 <GradientStop Color="#99FFFFFF" Offset="0" />
@@ -38,8 +39,8 @@
                 <GradientStop Color="#59FFFFFF" Offset="1" />
             </LinearGradientBrush>
             <LinearGradientBrush x:Key="LensFill" StartPoint="0,0" EndPoint="0,1">
-                <GradientStop Color="#4DFFFFFF" Offset="0" />
-                <GradientStop Color="#1FFFFFFF" Offset="0.6" />
+                <GradientStop Color="#40FFFFFF" Offset="0" />
+                <GradientStop Color="#140A0E18" Offset="0.6" />
                 <GradientStop Color="#2EFFFFFF" Offset="1" />
             </LinearGradientBrush>
             <LinearGradientBrush x:Key="LensRim" StartPoint="0,0" EndPoint="0,1">
@@ -145,6 +146,13 @@
                 <Setter Property="CornerRadius" Value="22" />
                 <Setter Property="Padding" Value="16,0,10,0" />
             </Style>
+
+            <!-- Small floating pieces (clock, tabs, hints) carry a little more shade: they sit on the game directly -->
+            <LinearGradientBrush x:Key="GlassChipFill" StartPoint="0,0" EndPoint="0,1">
+                <GradientStop Color="#3DFFFFFF" Offset="0" />
+                <GradientStop Color="#33101420" Offset="0.45" />
+                <GradientStop Color="#4D101420" Offset="1" />
+            </LinearGradientBrush>
 
             <Style x:Key="GlassSurface" TargetType="Border">
                 <Setter Property="Background" Value="{StaticResource GlassFill}" />

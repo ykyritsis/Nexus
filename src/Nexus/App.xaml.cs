@@ -71,6 +71,9 @@ public partial class App : Application
             () => _ui.TryEnqueue(Quit));
 
         _shell.Warm();
+        // Started in the background (at login): trim straight away, the overlay isn't needed yet.
+        if (_args.Contains("--background", StringComparer.OrdinalIgnoreCase))
+            _ui.TryEnqueue(DispatcherQueuePriority.Low, async () => { await Task.Delay(3000); Native.TrimWorkingSet(); });
         if (!_args.Contains("--background", StringComparer.OrdinalIgnoreCase))
             _ui.TryEnqueue(DispatcherQueuePriority.Low, () => _shell.Show());
     }

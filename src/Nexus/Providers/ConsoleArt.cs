@@ -84,6 +84,36 @@ public static class ConsoleArt
         return entry.Square is { } s ? new Found(s, entry.Hero, entry.Source ?? "") : null;
     }
 
+    /// <summary>
+    /// Steam's official logo and scenic hero art for a game whose local Steam cache lacks them,
+    /// from Steam's image server. Downloaded once; a missing file is remembered for a week.
+    /// </summary>
+    public static async Task<(string? hero, string? logo)> SteamOfficialAsync(string appId)
+    {
+        if (!appId.All(char.IsDigit)) return (null, null);
+        var key = $"steamcdn:{appId}";
+        await Gate.WaitAsync();
+        try
+        {
+            LoadIndex();
+            if (_index!.TryGetValue(key, out var e) && (e.Square != null || e.Hero != null || DateTime.UtcNow - e.CheckedAt < TimeSpan.FromDays(7)))
+                return (e.Hero is { } h && File.Exists(h) ? h : null, e.Square is { } l && File.Exists(l) ? l : null);
+        }
+        finally { Gate.Release(); }
+
+        var cdn = $"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appId}";
+        var entry = new Entry
+        {
+            CheckedAt = DateTime.UtcNow, Source = "Steam",
+            Square = await DownloadAsync($"{cdn}/logo.png", Path.Combine(Folder, $"steam_{appId}-logo.png")), // logo kept in the Square slot
+            Hero = await DownloadAsync($"{cdn}/library_hero.jpg", Path.Combine(Folder, $"steam_{appId}-hero.jpg")),
+        };
+        await Gate.WaitAsync();
+        try { _index![key] = entry; SaveIndex(); }
+        finally { Gate.Release(); }
+        return (entry.Hero, entry.Square);
+    }
+
     // ---------------- sources ----------------
 
     /// <summary>Microsoft Store catalog: FeaturePromotionalSquareArt, or square box art.</summary>

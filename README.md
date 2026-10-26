@@ -4,16 +4,23 @@ A console-style overlay for Windows PCs, opened with the controller's **Guide bu
 everything the Xbox Game Bar's compact mode does, with a liquid-glass design: the game blurs behind a
 centred, horizontal panel.
 
-> Status: Phase 0 and Phase 1 (see [docs/PLAN.md](docs/PLAN.md)). Home, Settings and Audio work;
-> Social, Apps and Widgets are placeholders.
+> Status: all six tabs work (see [docs/PLAN.md](docs/PLAN.md) for what's next).
 
 ## What it does today
 
 | Tab | |
 |---|---|
-| **Home** | Recently played games as cards (Steam), Home and Library buttons, launcher dock |
-| **Settings** | Control Center style tiles: mic, volume, touch keyboard, Xbox mode, compact mode, network, Bluetooth, airplane mode, gamepad cursor, Game Bar, more settings |
-| **Audio** | Speaker and mic mute and levels, default output/input switching, per-app mixer as channel strips with favourites |
+| **Home** | Your last four games as square tiles: scenic art with the game's logo centred (Steam, falling back to Xbox/PlayStation/IGN art), Home and Library buttons, launchers |
+| **Settings** | Control Center tiles: mic, Bluetooth, airplane mode, Xbox mode, screenshot, network, touch keyboard, gamepad cursor, compact mode, Game Bar; volume and mic levels; More settings |
+| **Audio** | Output and input device, mute and level; per-app mixer as channel strips with favourites |
+| **Social** | Steam friends with online and in-game status (no API key needed); chat and profile |
+| **Apps** | Open apps with live thumbnails; switch, close, end a frozen app |
+| **Widgets** | Performance (CPU, GPU, RAM, VRAM), Capture (screenshot, last 30 s, record), Display (borderless sizes and placement, Lossless Scaling, HDR), Gallery, Resources |
+
+A soft glow behind the panel takes its colour from the focused game.
+
+**Lightweight:** idle in the background it uses 0% CPU and about 13 MB of working memory; every
+widget, timer and network lookup runs only while its tab is open.
 
 **Controller:** Guide opens and closes it. Hold Guide jumps to Settings. D-pad or left stick moves,
 A selects, B goes back, LB/RB switch tabs, Y favourites an app in the mixer.

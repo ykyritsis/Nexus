@@ -14,21 +14,23 @@
             <!-- Decelerate in (fast start, soft landing), accelerate out. -->
             <Storyboard x:Name="ShowStory">
                 <DoubleAnimation Storyboard.TargetName="PanelTransform" Storyboard.TargetProperty="ScaleX"
-                                 From="0.94" To="1" Duration="0:0:0.36">
-                    <DoubleAnimation.EasingFunction><ExponentialEase EasingMode="EaseOut" Exponent="6" /></DoubleAnimation.EasingFunction>
+                                 From="0.9" To="1" Duration="0:0:0.42">
+                    <DoubleAnimation.EasingFunction><BackEase EasingMode="EaseOut" Amplitude="0.45" /></DoubleAnimation.EasingFunction>
                 </DoubleAnimation>
                 <DoubleAnimation Storyboard.TargetName="PanelTransform" Storyboard.TargetProperty="ScaleY"
-                                 From="0.94" To="1" Duration="0:0:0.36">
-                    <DoubleAnimation.EasingFunction><ExponentialEase EasingMode="EaseOut" Exponent="6" /></DoubleAnimation.EasingFunction>
+                                 From="0.9" To="1" Duration="0:0:0.42">
+                    <DoubleAnimation.EasingFunction><BackEase EasingMode="EaseOut" Amplitude="0.45" /></DoubleAnimation.EasingFunction>
                 </DoubleAnimation>
                 <DoubleAnimation Storyboard.TargetName="PanelTransform" Storyboard.TargetProperty="TranslateY"
-                                 From="20" To="0" Duration="0:0:0.36">
-                    <DoubleAnimation.EasingFunction><ExponentialEase EasingMode="EaseOut" Exponent="6" /></DoubleAnimation.EasingFunction>
+                                 From="26" To="0" Duration="0:0:0.42">
+                    <DoubleAnimation.EasingFunction><BackEase EasingMode="EaseOut" Amplitude="0.35" /></DoubleAnimation.EasingFunction>
                 </DoubleAnimation>
                 <DoubleAnimation Storyboard.TargetName="Panel" Storyboard.TargetProperty="Opacity"
                                  From="0" To="1" Duration="0:0:0.18" />
                 <DoubleAnimation Storyboard.TargetName="Scrim" Storyboard.TargetProperty="Opacity"
                                  From="0" To="1" Duration="0:0:0.25" />
+                <DoubleAnimation Storyboard.TargetName="Ambient" Storyboard.TargetProperty="Opacity"
+                                 From="0" To="1" Duration="0:0:0.5" />
             </Storyboard>
             <Storyboard x:Name="HideStory">
                 <DoubleAnimation Storyboard.TargetName="PanelTransform" Storyboard.TargetProperty="ScaleX"
@@ -39,15 +41,29 @@
                                  To="0" Duration="0:0:0.15" />
                 <DoubleAnimation Storyboard.TargetName="Scrim" Storyboard.TargetProperty="Opacity"
                                  To="0" Duration="0:0:0.15" />
+                <DoubleAnimation Storyboard.TargetName="Ambient" Storyboard.TargetProperty="Opacity"
+                                 To="0" Duration="0:0:0.15" />
             </Storyboard>
         </Grid.Resources>
 
-        <!-- Darkening vignette over the blur; clicking it closes the overlay -->
+        <!-- A light vignette over the blur; clicking it closes the overlay -->
         <Rectangle x:Name="Scrim" PointerPressed="Scrim_PointerPressed">
             <Rectangle.Fill>
-                <RadialGradientBrush Center="0.5,0.5" GradientOrigin="0.5,0.5" RadiusX="0.75" RadiusY="0.75">
-                    <GradientStop Color="#40000000" Offset="0" />
-                    <GradientStop Color="#A6000000" Offset="1" />
+                <RadialGradientBrush Center="0.5,0.5" GradientOrigin="0.5,0.5" RadiusX="0.8" RadiusY="0.8">
+                    <GradientStop Color="#00000000" Offset="0" />
+                    <GradientStop Color="#05000000" Offset="0.5" />
+                    <GradientStop Color="#47000000" Offset="1" />
+                </RadialGradientBrush>
+            </Rectangle.Fill>
+        </Rectangle>
+
+        <!-- Ambient glow behind the panel, tinted by the focused game's art -->
+        <Rectangle x:Name="Ambient" IsHitTestVisible="False">
+            <Rectangle.Fill>
+                <RadialGradientBrush Center="0.5,0.52" GradientOrigin="0.5,0.52" RadiusX="0.42" RadiusY="0.5">
+                    <GradientStop x:Name="AmbientInner" Color="#665AC8FA" Offset="0" />
+                    <GradientStop x:Name="AmbientMid" Color="#245AC8FA" Offset="0.55" />
+                    <GradientStop Color="#005AC8FA" Offset="1" />
                 </RadialGradientBrush>
             </Rectangle.Fill>
         </Rectangle>
@@ -73,11 +89,11 @@
                     </Grid.ColumnDefinitions>
 
                     <Border x:Name="ClockChip" Style="{StaticResource GlassSurface}" CornerRadius="22" Padding="16,7"
-                            HorizontalAlignment="Left" VerticalAlignment="Center">
+                            HorizontalAlignment="Left" VerticalAlignment="Center" Background="{StaticResource GlassChipFill}">
                         <TextBlock x:Name="ClockText" Style="{StaticResource BodyStrongTextBlockStyle}" FontSize="17" />
                     </Border>
 
-                    <Border x:Name="TabPill" Grid.Column="1" Style="{StaticResource GlassSurface}" CornerRadius="34" Padding="5">
+                    <Border x:Name="TabPill" Grid.Column="1" Style="{StaticResource GlassSurface}" CornerRadius="34" Padding="5" Background="{StaticResource GlassChipFill}">
                         <Grid>
                             <Border x:Name="Lens" Width="88" Height="58" CornerRadius="29" HorizontalAlignment="Left"
                                     Background="{StaticResource LensFill}" BorderBrush="{StaticResource LensRim}" BorderThickness="1">
@@ -109,7 +125,7 @@
                     </Border>
 
                     <Border x:Name="BatteryChip" Grid.Column="2" Style="{StaticResource GlassSurface}" CornerRadius="22" Padding="14,8"
-                            HorizontalAlignment="Right" VerticalAlignment="Center" Visibility="Collapsed">
+                            HorizontalAlignment="Right" VerticalAlignment="Center" Visibility="Collapsed" Background="{StaticResource GlassChipFill}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <FontIcon x:Name="BatteryGlyph" Glyph="&#xE7FC;" FontSize="17" />
                             <TextBlock x:Name="BatteryText" Style="{StaticResource BodyTextBlockStyle}" VerticalAlignment="Center" />
@@ -144,7 +160,7 @@
                 </Border>
 
                 <!-- Controller hints, with the Windows gamepad glyphs -->
-                <Border x:Name="HintPill" Grid.Row="2" Style="{StaticResource GlassSurface}" CornerRadius="20" Padding="18,7" HorizontalAlignment="Center">
+                <Border x:Name="HintPill" Grid.Row="2" Style="{StaticResource GlassSurface}" CornerRadius="20" Padding="18,7" HorizontalAlignment="Center" Background="{StaticResource GlassChipFill}">
                     <StackPanel Orientation="Horizontal" Spacing="20">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <FontIcon Glyph="&#xF10C;" FontSize="19" />

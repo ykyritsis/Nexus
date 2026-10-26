@@ -110,6 +110,12 @@ internal static class Native
         finally { CloseHandle(h); }
     }
 
+    [DllImport("kernel32.dll")] static extern bool SetProcessWorkingSetSize(IntPtr process, IntPtr min, IntPtr max);
+    [DllImport("kernel32.dll")] static extern IntPtr GetCurrentProcess();
+
+    /// <summary>Lets Windows page out memory this process isn't actively using.</summary>
+    public static void TrimWorkingSet() => SetProcessWorkingSetSize(GetCurrentProcess(), (IntPtr)(-1), (IntPtr)(-1));
+
     // ---------------- window subclassing (tray + hotkey messages) ----------------
     public delegate IntPtr SubclassProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam, UIntPtr id, UIntPtr data);
     [DllImport("comctl32.dll")] public static extern bool SetWindowSubclass(IntPtr hWnd, SubclassProc proc, UIntPtr id, UIntPtr data);

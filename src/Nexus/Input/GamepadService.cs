@@ -115,7 +115,9 @@ public sealed class GamepadService : IDisposable
                 if (!_connected[slot]) { _connected[slot] = true; ConnectionChanged?.Invoke(slot, true); Log.Info($"controller {slot + 1} connected"); }
                 Process(slot, s, now);
             }
-            Thread.Sleep(AnyConnected ? 8 : 250);
+            // 125 Hz in menus (or driving the cursor), 60 Hz otherwise: plenty for the Guide button,
+            // and with no controller connected it only checks four times a second.
+            Thread.Sleep(!AnyConnected ? 250 : Navigating || CursorMode ? 8 : 16);
         }
     }
 

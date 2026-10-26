@@ -1,5 +1,4 @@
 using System.Numerics;
-using Microsoft.UI.Composition;
 using Microsoft.UI.Text;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -12,19 +11,22 @@ using Windows.UI;
 namespace Nexus.Views;
 
 /// <summary>
-/// Home tab, laid out like a console dashboard: a row of square tiles (the most recent game larger),
-/// the focused game's name underneath, Home/Library, and installed launchers.
+/// Home tab: your last four games as big square tiles (the most recent one larger), the focused
+/// game's name, Home/Library and the launchers.
 ///
-/// Tile art, best first: square key art from the Xbox Store, PlayStation Store or IGN
-/// (<see cref="ConsoleArt"/>), else Steam's hero image cropped square with the game's logo on top.
-/// Steam art shows straight away and console art replaces it as each lookup finishes.
+/// Each tile is built clean: a scenic picture with no text on it, cropped square, with the game's
+/// transparent logo centred on top. Pictures come from Steam's hero art, or the Xbox/PlayStation
+/// hero art (<see cref="ConsoleArt"/>). Games without a logo use console square key art, which has
+/// the title built in, and finally the top of the Steam cover.
 /// </summary>
 public sealed partial class HomeView : UserControl, INexusView
 {
-    const double HeroSize = 200, TileSize = 164;
+    const int GameCount = 4;
+    const double HeroSize = 222, TileSize = 184;
 
     readonly App _app;
     readonly ShellWindow _shell;
+    readonly Dictionary<string, Color> _moods = new();
     bool _dockBuilt;
     string _recentKey = "";
 
@@ -58,27 +60,39 @@ public sealed partial class HomeView : UserControl, INexusView
 
     async Task LoadRecentAsync()
     {
-        var games = await Task.Run(() => GameLibrary.Recent(Math.Max(_app.Settings.RecentGameCount, 6)));
+        var games = await Task.Run(() => GameLibrary.Recent(GameCount));
         NoRecentText.Visibility = games.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         var key = string.Join("|", games.Select(g => g.Key));
         if (key == _recentKey) return;
         _recentKey = key;
 
         Tiles.Children.Clear();
-        var tiles = new List<(GameEntry game, Button tile, double size)>();
+        var built = new List<(GameEntry game, Button tile, double size)>();
         for (int i = 0; i < games.Count; i++)
         {
             double size = i == 0 ? HeroSize : TileSize;
             var tile = MakeTile(games[i], size, first: i == 0);
             tile.Content = await TileArtAsync(games[i], size, ConsoleArt.Cached(games[i].Key));
             Tiles.Children.Add(tile);
-            tiles.Add((games[i], tile, size));
+            built.Add((games[i], tile, size));
         }
-        if (games.Count > 0) ShowFocusText(games[0], first: true);
+        if (games.Count > 0) Focused(games[0], first: true);
 
-        // Fetch console art for any game that doesn't have it yet, one at a time, in the background.
-        foreach (var (game, tile, size) in tiles)
+        // Fill in missing art in the background: Steam's official logo and scene first (for the clean
+        // centred-logo look), then console art for anything still without a logo.
+        foreach (var (original, tile, size) in built)
         {
+            var game = original;
+            if ((game.Art.Logo == null || game.Art.Hero == null) && game.Key.StartsWith("steam:"))
+            {
+                var (hero, logo) = await ConsoleArt.SteamOfficialAsync(game.Key[6..]);
+                if (hero != null || logo != null)
+                {
+                    game = game with { Art = game.Art with { Hero = game.Art.Hero ?? hero, Logo = game.Art.Logo ?? logo } };
+                    if (tile.Parent != null) tile.Content = await TileArtAsync(game, size, ConsoleArt.Cached(game.Key));
+                }
+            }
+            if (game.Art.Logo != null && game.Art.Hero != null) continue;
             if (ConsoleArt.Cached(game.Key) != null) continue;
             var found = await ConsoleArt.ResolveAsync(game.Key, game.Name);
             if (found != null && tile.Parent != null) tile.Content = await TileArtAsync(game, size, found);
@@ -90,77 +104,86 @@ public sealed partial class HomeView : UserControl, INexusView
         var tile = new Button
         {
             Style = (Style)Application.Current.Resources["GameTileStyle"],
-            Width = size, Height = size, VerticalAlignment = VerticalAlignment.Bottom,
+            Width = size, Height = size, VerticalAlignment = VerticalAlignment.Center,
         };
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(tile, game.Name);
         tile.Click += (_, _) => OpenAndHide(game.LaunchTarget);
-        tile.GotFocus += (_, _) => { Lift(tile, true); ShowFocusText(game, first); };
+        tile.GotFocus += (_, _) => { Lift(tile, true); Focused(game, first); };
         tile.LostFocus += (_, _) => Lift(tile, false);
-        tile.PointerEntered += (_, _) => Lift(tile, true);
+        tile.PointerEntered += (_, _) => { Lift(tile, true); Focused(game, first); };
         tile.PointerExited += (_, _) => { if (tile.FocusState == FocusState.Unfocused) Lift(tile, false); };
         return tile;
     }
 
-    void ShowFocusText(GameEntry game, bool first)
+    void Focused(GameEntry game, bool first)
     {
         FocusTitle.Text = game.Name;
         FocusDetail.Text = (first ? "Continue · " : "") + $"{game.Source} · {GameLibrary.Ago(game.LastPlayed)}";
+        if (_moods.TryGetValue(game.Key, out var mood)) _shell.SetAmbient(mood);
     }
 
-    /// <summary>The Xbox "lift": focused tiles grow slightly from their centre.</summary>
+    /// <summary>A springy "lift": focused tiles grow from their centre with a little overshoot.</summary>
     static void Lift(Button tile, bool up)
     {
         var visual = ElementCompositionPreview.GetElementVisual(tile);
         visual.CenterPoint = new Vector3((float)tile.ActualWidth / 2, (float)tile.ActualHeight / 2, 0);
         var anim = visual.Compositor.CreateVector3KeyFrameAnimation();
-        var ease = visual.Compositor.CreateCubicBezierEasingFunction(new Vector2(0.1f, 0.9f), new Vector2(0.2f, 1f));
-        anim.InsertKeyFrame(1f, up ? new Vector3(1.05f, 1.05f, 1) : Vector3.One, ease);
-        anim.Duration = TimeSpan.FromMilliseconds(up ? 250 : 167);
+        var spring = visual.Compositor.CreateCubicBezierEasingFunction(new Vector2(0.34f, 1.56f), new Vector2(0.64f, 1f));
+        anim.InsertKeyFrame(1f, up ? new Vector3(1.07f, 1.07f, 1) : Vector3.One, spring);
+        anim.Duration = TimeSpan.FromMilliseconds(up ? 380 : 220);
         visual.StartAnimation("Scale", anim);
     }
 
     async Task<Grid> TileArtAsync(GameEntry game, double size, ConsoleArt.Found? console)
     {
         var layers = new Grid();
-        var picture = new Border { CornerRadius = new CornerRadius(25), Background = new SolidColorBrush(Color.FromArgb(255, 28, 32, 40)) };
+        var picture = new Border { CornerRadius = new CornerRadius(25), Background = new SolidColorBrush(Color.FromArgb(255, 34, 38, 50)) };
         layers.Children.Add(picture);
 
-        // 1. Console square art: already a finished tile with the title on it.
-        if (console != null && await Icons.LoadAsync(console.Square, (uint)(size * 2)) is { } sq)
-        {
-            picture.Background = new ImageBrush { ImageSource = sq, Stretch = Stretch.UniformToFill };
-            return layers;
-        }
+        string? scene = game.Art.Hero ?? console?.Hero;
+        string? logo = game.Art.Logo;
+        string? used;
 
-        // 2. Steam: hero scene cropped square with the transparent logo on top,
-        //    or the top of the cover (which has the title on it), or the icon.
-        bool composed = game.Art.Hero != null;
-        var art = game.Art.Hero ?? game.Art.Portrait ?? game.Art.Icon;
-        if (await Icons.LoadAsync(art, (uint)(size * 3)) is { } img)
-            picture.Background = new ImageBrush { ImageSource = img, Stretch = Stretch.UniformToFill, AlignmentY = composed ? AlignmentY.Center : AlignmentY.Top };
-        else
-            picture.Child = new FontIcon { Glyph = "", FontSize = 40, Opacity = 0.6 };
-
-        if (composed)
+        if (scene != null && logo != null && await Icons.LoadAsync(scene, (uint)(size * 3)) is { } sceneImg)
         {
-            var fade = new LinearGradientBrush { StartPoint = new(0, 0), EndPoint = new(0, 1) };
-            fade.GradientStops.Add(new GradientStop { Color = Color.FromArgb(0, 0, 0, 0), Offset = 0.45 });
-            fade.GradientStops.Add(new GradientStop { Color = Color.FromArgb(170, 0, 0, 0), Offset = 1 });
-            layers.Children.Add(new Border { CornerRadius = new CornerRadius(25), Background = fade });
-            if (await Icons.LoadAsync(game.Art.Logo, 600) is { } logo)
+            // Clean composite: scene cropped square, a soft centre shade for contrast, logo centred.
+            used = scene;
+            picture.Background = new ImageBrush { ImageSource = sceneImg, Stretch = Stretch.UniformToFill };
+            var shade = new RadialGradientBrush { Center = new(0.5, 0.5), GradientOrigin = new(0.5, 0.5), RadiusX = 0.6, RadiusY = 0.6 };
+            shade.GradientStops.Add(new GradientStop { Color = Color.FromArgb(70, 0, 0, 0), Offset = 0 });
+            shade.GradientStops.Add(new GradientStop { Color = Color.FromArgb(0, 0, 0, 0), Offset = 1 });
+            layers.Children.Add(new Border { CornerRadius = new CornerRadius(25), Background = shade });
+            if (await Icons.LoadAsync(logo, 800) is { } logoImg)
                 layers.Children.Add(new Image
                 {
-                    Source = logo, MaxHeight = size * 0.3, MaxWidth = size * 0.8, Stretch = Stretch.Uniform,
-                    HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Bottom,
-                    Margin = new Thickness(12, 0, 12, size * 0.08),
+                    Source = logoImg, MaxWidth = size * 0.78, MaxHeight = size * 0.42, Stretch = Stretch.Uniform,
+                    HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
                 });
+        }
+        else if (console != null && await Icons.LoadAsync(console.Square, (uint)(size * 2)) is { } sq)
+        {
+            // Console key art already carries the title.
+            used = console.Square;
+            picture.Background = new ImageBrush { ImageSource = sq, Stretch = Stretch.UniformToFill };
+        }
+        else
+        {
+            used = game.Art.Portrait ?? game.Art.Hero ?? game.Art.Icon;
+            if (await Icons.LoadAsync(used, (uint)(size * 3)) is { } img)
+                picture.Background = new ImageBrush { ImageSource = img, Stretch = Stretch.UniformToFill, AlignmentY = AlignmentY.Top };
             else
                 layers.Children.Add(new TextBlock
                 {
                     Text = game.Name, Style = (Style)Application.Current.Resources["BodyStrongTextBlockStyle"],
-                    TextWrapping = TextWrapping.Wrap, MaxLines = 2, TextAlignment = TextAlignment.Center,
-                    VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(12, 0, 12, 14),
+                    TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Center,
+                    HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(14),
                 });
+        }
+
+        if (await ArtColor.FromFileAsync(used) is { } mood)
+        {
+            _moods[game.Key] = mood;
+            if (Tiles.Children.Count > 0 && FocusTitle.Text == game.Name) _shell.SetAmbient(mood);
         }
         return layers;
     }

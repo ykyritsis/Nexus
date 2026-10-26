@@ -8,7 +8,7 @@ namespace Nexus.Views;
 
 /// <summary>
 /// Frosted glass across the whole window: Windows' acrylic blur of whatever is behind (the game),
-/// tinted dark. Unlike the stock DesktopAcrylicBackdrop it stays blurred even when the window loses
+/// lightly tinted. Unlike the stock DesktopAcrylicBackdrop it stays blurred even when the window loses
 /// focus for a moment, so it never flashes to a flat colour.
 /// </summary>
 public sealed class GlassBackdrop : SystemBackdrop
@@ -23,11 +23,12 @@ public sealed class GlassBackdrop : SystemBackdrop
         _config.IsInputActive = true; // keep the blur even when inactive
         _controller = new DesktopAcrylicController
         {
-            Kind = DesktopAcrylicKind.Base,
-            TintColor = Color.FromArgb(255, 12, 14, 20),
-            TintOpacity = 0.38f,
-            LuminosityOpacity = 0.45f,
-            FallbackColor = Color.FromArgb(235, 18, 20, 26),
+            // Thin acrylic with a light tint: the game stays recognisable, just softly frosted.
+            Kind = DesktopAcrylicKind.Thin,
+            TintColor = Color.FromArgb(255, 20, 24, 34),
+            TintOpacity = 0.08f,
+            LuminosityOpacity = 0.18f,
+            FallbackColor = Color.FromArgb(200, 30, 34, 44),
         };
         _controller.AddSystemBackdropTarget(target);
         _controller.SetSystemBackdropConfiguration(_config);
