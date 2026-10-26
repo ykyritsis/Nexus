@@ -91,7 +91,7 @@ public sealed partial class SettingsView : UserControl, INexusView
         finally { _updating = false; }
     }
 
-    void RefreshLocal()
+    async void RefreshLocal()
     {
         bool xboxSupported = SystemStatus.XboxModeSupported();
         bool xboxOn = xboxSupported && SystemStatus.XboxModeActive();
@@ -99,7 +99,7 @@ public sealed partial class SettingsView : UserControl, INexusView
         XboxTile.IsEnabled = xboxSupported;
         Tiles.Set(CompactTile, "", "Compact", _app.Settings.CompactMode ? "On" : "Off", active: _app.Settings.CompactMode);
         Tiles.Set(CursorTile, "", "Gamepad cursor", _app.Settings.GamepadCursor ? "On" : "Off", active: _app.Settings.GamepadCursor);
-        var (connected, detail) = SystemStatus.Network();
+        var (connected, detail) = await Task.Run(SystemStatus.Network);
         Tiles.Set(NetworkTile, connected ? "" : "", "Network", detail, active: connected);
     }
 

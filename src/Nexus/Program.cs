@@ -22,8 +22,9 @@ public static class Program
         WinRT.ComWrappersSupport.InitializeComWrappers();
         Application.Start(init =>
         {
-            var context = new DispatcherQueueSynchronizationContext(DispatcherQueue.GetForCurrentThread());
-            SynchronizationContext.SetSynchronizationContext(context);
+            SynchronizationContext.SetSynchronizationContext(new SafeUiContext(DispatcherQueue.GetForCurrentThread()));
+            TaskScheduler.UnobservedTaskException += (_, e) => { Log.Warn($"unobserved task error: {e.Exception.InnerException ?? e.Exception}"); e.SetObserved(); };
+            AppDomain.CurrentDomain.UnhandledException += (_, e) => Log.Warn($"fatal: {e.ExceptionObject}");
             _ = new App(args);
         });
         return 0;

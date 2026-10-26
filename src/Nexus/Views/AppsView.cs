@@ -81,9 +81,15 @@ public sealed class AppsView : UserControl, INexusView
         foreach (var c in _list) { Providers.OpenWindows.Unregister(c.Thumb); c.Thumb = IntPtr.Zero; c.Placed = default; }
     }
 
-    void Refresh()
+    bool _listing;
+
+    async void Refresh()
     {
-        var windows = Providers.OpenWindows.List();
+        if (_listing) return;
+        _listing = true;
+        List<OpenWindow> windows;
+        try { windows = await Task.Run(Providers.OpenWindows.List); }
+        finally { _listing = false; }
         var key = string.Join("|", windows.Select(w => w.Handle));
         _empty.Visibility = windows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         if (key == _key)

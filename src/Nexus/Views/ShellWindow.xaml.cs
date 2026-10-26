@@ -241,6 +241,7 @@ public sealed partial class ShellWindow : Window
     {
         _warming = true;
         AppWindow.MoveAndResize(new RectInt32(-32000, -32000, 1600, 900));
+        _placed = default;
         AppWindow.Show(false);
         DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () =>
         {
@@ -330,13 +331,16 @@ public sealed partial class ShellWindow : Window
     /// Covers the game's monitor (the backdrop blurs all of it) and sizes the panel to about half
     /// the screen width, centred.
     /// </summary>
+    RectInt32 _placed;
+
     void Place(IntPtr near)
     {
         var (b, scale) = Native.MonitorOf(near);
         int w = b.Right - b.Left, h = b.Bottom - b.Top;
         // One pixel short of the full monitor: Windows treats a borderless window that exactly covers
         // the screen as a full-screen app and turns off its acrylic, leaving a flat dark fill.
-        AppWindow.MoveAndResize(new RectInt32(b.Left, b.Top, w, h - 1));
+        var rect = new RectInt32(b.Left, b.Top, w, h - 1);
+        if (!rect.Equals(_placed)) { AppWindow.MoveAndResize(rect); _placed = rect; }
         double dipW = w / scale, dipH = h / scale;
         Panel.Measure(new Windows.Foundation.Size(Panel.Width, double.PositiveInfinity));
         double designH = Panel.DesiredSize.Height;
@@ -514,8 +518,8 @@ public sealed partial class ShellWindow : Window
         bool toB = AmbientA.Opacity >= 0.5;
         var (show, hide) = toB ? (AmbientB, AmbientA) : (AmbientA, AmbientB);
         var (inner, mid) = toB ? (AmbientBInner, AmbientBMid) : (AmbientAInner, AmbientAMid);
-        inner.Color = Windows.UI.Color.FromArgb(0x3A, color.R, color.G, color.B);
-        mid.Color = Windows.UI.Color.FromArgb(0x14, color.R, color.G, color.B);
+        inner.Color = Windows.UI.Color.FromArgb(0x1E, color.R, color.G, color.B);
+        mid.Color = Windows.UI.Color.FromArgb(0x08, color.R, color.G, color.B);
         var sb = new Storyboard();
         void Fade(UIElement e, double to)
         {

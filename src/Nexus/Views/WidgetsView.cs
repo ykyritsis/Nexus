@@ -59,7 +59,6 @@ public sealed class WidgetsView : UserControl, INexusView
 
     public void OnShown()
     {
-        _perf ??= new PerfMonitor();
         UpdatePerf();
         UpdateApps();
         _ = UpdateGalleryAsync();
@@ -139,10 +138,20 @@ public sealed class WidgetsView : UserControl, INexusView
         return panel;
     }
 
-    void UpdatePerf()
+    bool _sampling, _listing;
+
+    /// <summary>Counters are read on a worker thread (opening them and collecting can take a while).</summary>
+    async void UpdatePerf()
     {
-        if (_perf is null) return;
-        var s = _perf.Sample();
+        if (_sampling) return;
+        _sampling = true;
+        PerfSample s;
+        try
+        {
+            _perf ??= await Task.Run(() => new PerfMonitor());
+            s = await Task.Run(_perf.Sample);
+        }
+        finally { _sampling = false; }
         Set(0, $"{s.Cpu:0}%", s.Cpu);
         Set(1, $"{s.Gpu:0}%", s.Gpu);
         Set(2, $"{s.RamUsedGb:0.0} / {s.RamTotalGb:0} GB", s.RamUsedGb / Math.Max(1, s.RamTotalGb) * 100);
@@ -278,9 +287,14 @@ public sealed class WidgetsView : UserControl, INexusView
 
     // ---------------- Resources ----------------
 
-    void UpdateApps()
+    /// <summary>Walking every process takes tens of milliseconds, so it runs on a worker thread.</summary>
+    async void UpdateApps()
     {
-        var apps = _top.Sample(5);
+        if (_listing) return;
+        _listing = true;
+        List<AppUsage> apps;
+        try { apps = await Task.Run(() => _top.Sample(5)); }
+        finally { _listing = false; }
         while (_apps.Children.Count < apps.Count) _apps.Children.Add(AppRow());
         while (_apps.Children.Count > apps.Count) _apps.Children.RemoveAt(_apps.Children.Count - 1);
         for (int i = 0; i < apps.Count; i++)

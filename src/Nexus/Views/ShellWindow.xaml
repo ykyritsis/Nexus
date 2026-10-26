@@ -63,18 +63,18 @@
             <Rectangle x:Name="AmbientA">
                 <Rectangle.Fill>
                     <RadialGradientBrush Center="0.5,0.52" GradientOrigin="0.5,0.52" RadiusX="0.42" RadiusY="0.5">
-                        <GradientStop x:Name="AmbientAInner" Color="#3A5AC8FA" Offset="0" />
-                        <GradientStop x:Name="AmbientAMid" Color="#145AC8FA" Offset="0.55" />
-                        <GradientStop Color="#005AC8FA" Offset="1" />
+                        <GradientStop x:Name="AmbientAInner" Color="#00000000" Offset="0" />
+                        <GradientStop x:Name="AmbientAMid" Color="#00000000" Offset="0.55" />
+                        <GradientStop Color="#00000000" Offset="1" />
                     </RadialGradientBrush>
                 </Rectangle.Fill>
             </Rectangle>
             <Rectangle x:Name="AmbientB" Opacity="0">
                 <Rectangle.Fill>
                     <RadialGradientBrush Center="0.5,0.52" GradientOrigin="0.5,0.52" RadiusX="0.42" RadiusY="0.5">
-                        <GradientStop x:Name="AmbientBInner" Color="#3A5AC8FA" Offset="0" />
-                        <GradientStop x:Name="AmbientBMid" Color="#145AC8FA" Offset="0.55" />
-                        <GradientStop Color="#005AC8FA" Offset="1" />
+                        <GradientStop x:Name="AmbientBInner" Color="#00000000" Offset="0" />
+                        <GradientStop x:Name="AmbientBMid" Color="#00000000" Offset="0.55" />
+                        <GradientStop Color="#00000000" Offset="1" />
                     </RadialGradientBrush>
                 </Rectangle.Fill>
             </Rectangle>

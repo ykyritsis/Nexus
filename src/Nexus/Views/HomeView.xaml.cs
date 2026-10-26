@@ -220,7 +220,10 @@ public sealed partial class HomeView : UserControl, INexusView
     static void Lift(Button tile, bool up)
     {
         var visual = ElementCompositionPreview.GetElementVisual(tile);
-        visual.CenterPoint = new Vector3((float)tile.ActualWidth / 2, (float)tile.ActualHeight / 2, 0);
+        // Width/Height are set when the tile is made; ActualWidth is still 0 if it is focused before its
+        // first layout (the first tile, as the overlay opens), which made it grow from its top-left corner.
+        double w = double.IsNaN(tile.Width) ? tile.ActualWidth : tile.Width, h = double.IsNaN(tile.Height) ? tile.ActualHeight : tile.Height;
+        visual.CenterPoint = new Vector3((float)w / 2, (float)h / 2, 0);
         var anim = visual.Compositor.CreateVector3KeyFrameAnimation();
         var spring = visual.Compositor.CreateCubicBezierEasingFunction(new Vector2(0.2f, 0.9f), new Vector2(0.3f, 1f));
         anim.InsertKeyFrame(1f, up ? new Vector3(1.07f, 1.07f, 1) : Vector3.One, spring);
