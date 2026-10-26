@@ -41,7 +41,7 @@ public sealed class GamepadService : IDisposable
     [DllImport("xinput1_4.dll")] static extern uint XInputGetBatteryInformation(uint user, byte devType, out XInputBattery info);
 
     const int HoldMs = 700;          // Guide held this long = "hold" gesture instead of a press
-    const int RepeatDelayMs = 300, RepeatEveryMs = 90;
+    const int RepeatDelayMs = 420, RepeatEveryMs = 130;
     const short StickNav = 19000;    // stick past ~58% counts as a d-pad direction for navigation
     const Pad NavButtons = Pad.Up | Pad.Down | Pad.Left | Pad.Right | Pad.A | Pad.B | Pad.X | Pad.Y |
                            Pad.LB | Pad.RB | Pad.Start | Pad.Back;
