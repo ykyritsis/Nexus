@@ -101,6 +101,7 @@ public sealed class Updater
             Log.Info($"update {latest} downloaded");
             SetStatus($"Version {latest.ToString(3)} ready · installs when you're not playing");
             _install.Start();
+            TryInstall(onlyWhenIdle: true); // right away if you're between games, else every 10 min
         }
         catch (Exception ex)
         {

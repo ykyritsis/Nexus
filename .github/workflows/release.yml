@@ -26,7 +26,10 @@ jobs:
         run: |
           $version = "0.1.${{ github.run_number }}"
           "VERSION=$version" >> $env:GITHUB_ENV
-          dotnet publish src/Nexus/Nexus.csproj -c Release -p:Platform=x64 -p:Version=$version -o out
+          # Build, not publish: publish leaves out Nexus.pri and the compiled XAML (.xbf) of an
+          # unpackaged WinUI app. The build output is already self-contained.
+          dotnet build src/Nexus/Nexus.csproj -c Release -p:Platform=x64 -p:Version=$version -o out
+          Remove-Item out/*.pdb
           Compress-Archive -Path out/* -DestinationPath Nexus-win-x64.zip
 
       - name: Publish release

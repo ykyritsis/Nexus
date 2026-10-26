@@ -29,6 +29,7 @@ public partial class App : Application
         UnhandledException += (_, e) =>
         {
             Log.Error("unhandled", e.Exception);
+            Log.Warn(e.Exception.ToString()); // full detail (stack, inner exceptions) for diagnosis
             e.Handled = true; // one broken panel must not take the overlay down
         };
         Log.Info($"Nexus {typeof(App).Assembly.GetName().Version} starting ({string.Join(' ', args)})");
