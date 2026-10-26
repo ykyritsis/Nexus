@@ -1,0 +1,38 @@
+# Builds Nexus on every push to main that touches the app and publishes it as a GitHub release
+# (v0.1.<run>), which the app's updater picks up.
+name: Release
+
+on:
+  push:
+    branches: [main]
+    paths: ["src/**", ".github/workflows/release.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Build
+        shell: pwsh
+        run: |
+          $version = "0.1.${{ github.run_number }}"
+          "VERSION=$version" >> $env:GITHUB_ENV
+          dotnet publish src/Nexus/Nexus.csproj -c Release -p:Platform=x64 -p:Version=$version -o out
+          Compress-Archive -Path out/* -DestinationPath Nexus-win-x64.zip
+
+      - name: Publish release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $notes = git log -1 --format=%B
+          gh release create "v$env:VERSION" Nexus-win-x64.zip --title "Nexus $env:VERSION" --notes "$notes"

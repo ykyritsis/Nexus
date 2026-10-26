@@ -78,12 +78,13 @@
             </Border>
             <Border Style="{StaticResource GlassSurface}" Padding="20,16">
                 <StackPanel Orientation="Horizontal" Spacing="8">
-                    <Button Style="{StaticResource GlassButtonStyle}" Content="Open log folder" Click="Log_Click" />
+                    <Button x:Name="UpdateButton" Style="{StaticResource GlassButtonStyle}" Content="Check for updates" Click="Update_Click" />
+                    <Button Style="{StaticResource GlassButtonStyle}" Content="Logs" Click="Log_Click" />
                     <Button Style="{StaticResource GlassButtonStyle}" Content="Quit Nexus" Click="Quit_Click" />
                 </StackPanel>
             </Border>
             <TextBlock x:Name="VersionText" Style="{StaticResource CaptionTextBlockStyle}" Margin="2,6,0,0"
-                       Foreground="{StaticResource SubtleTextBrush}" />
+                       Foreground="{StaticResource SubtleTextBrush}" TextTrimming="CharacterEllipsis" />
         </StackPanel>
     </Grid>
 </UserControl>

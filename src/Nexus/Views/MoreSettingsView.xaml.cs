@@ -18,11 +18,29 @@ public sealed partial class MoreSettingsView : UserControl, INexusView
     {
         _app = app;
         InitializeComponent();
-        VersionText.Text = $"Version {typeof(App).Assembly.GetName().Version?.ToString(3)}";
     }
 
-    public void OnShown() => Refresh();
-    public void OnHidden() { }
+    public void OnShown()
+    {
+        Refresh();
+        _app.Updater.StatusChanged += UpdateStatus;
+        UpdateStatus();
+    }
+
+    public void OnHidden() => _app.Updater.StatusChanged -= UpdateStatus;
+
+    void UpdateStatus()
+    {
+        VersionText.Text = $"Version {Updater.Current.ToString(3)} · {_app.Updater.Status}";
+        UpdateButton.Content = _app.Updater.UpdateReady ? "Install update" : "Check for updates";
+        UpdateButton.IsEnabled = !Updater.IsDevBuild;
+    }
+
+    async void Update_Click(object sender, RoutedEventArgs e)
+    {
+        if (_app.Updater.UpdateReady) { _app.Updater.TryInstall(onlyWhenIdle: false); return; }
+        await _app.Updater.CheckAsync();
+    }
 
     void Refresh()
     {

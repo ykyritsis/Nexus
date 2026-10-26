@@ -18,6 +18,7 @@ public partial class App : Application
     public AppSettings Settings { get; }
     public GamepadService Gamepad { get; }
     public ShellWindow Shell => _shell!;
+    public Updater Updater { get; private set; } = null!;
 
     public App(string[] args)
     {
@@ -49,6 +50,7 @@ public partial class App : Application
         // Holding Guide belongs to Windows (Xbox mode's task view), so Nexus only reacts to a press.
         Gamepad.NavButton += b => _ui.TryEnqueue(() => _shell.Navigator.Handle(b));
         _toasts = new ControllerToasts(this, _ui);
+        Updater = new Updater(this, _ui);
 
         _hooks = new WindowHooks(_shell.Hwnd);
         _hooks.HotkeyPressed += () => _shell.Toggle();
