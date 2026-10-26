@@ -13,8 +13,17 @@ namespace Nexus.Views;
 /// </summary>
 public sealed class GlassBackdrop : SystemBackdrop
 {
+    readonly float _tint, _luminosity;
     DesktopAcrylicController? _controller;
     SystemBackdropConfiguration? _config;
+
+    /// <param name="tint">How much of the dark tint covers the blur (the overlay uses very little).</param>
+    /// <param name="luminosity">How much the blur is evened out.</param>
+    public GlassBackdrop(float tint = 0.08f, float luminosity = 0.18f)
+    {
+        _tint = tint;
+        _luminosity = luminosity;
+    }
 
     protected override void OnTargetConnected(ICompositionSupportsSystemBackdrop target, XamlRoot root)
     {
@@ -26,8 +35,8 @@ public sealed class GlassBackdrop : SystemBackdrop
             // Thin acrylic with a light tint: the game stays recognisable, just softly frosted.
             Kind = DesktopAcrylicKind.Thin,
             TintColor = Color.FromArgb(255, 20, 24, 34),
-            TintOpacity = 0.08f,
-            LuminosityOpacity = 0.18f,
+            TintOpacity = _tint,
+            LuminosityOpacity = _luminosity,
             FallbackColor = Color.FromArgb(200, 30, 34, 44),
         };
         _controller.AddSystemBackdropTarget(target);

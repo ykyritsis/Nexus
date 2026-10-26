@@ -7,6 +7,8 @@ public sealed class AppSettings
 {
     public bool CompactMode { get; set; }
     public bool GamepadCursor { get; set; }
+    /// <summary>Small pop-ups when a controller connects, disconnects or runs low.</summary>
+    public bool ControllerToasts { get; set; } = true;
 
     /// <summary>"auto" (OmniDash if installed, else the Xbox app), "xbox", "steam" or a path/URI.</summary>
     public string HomeTarget { get; set; } = "auto";

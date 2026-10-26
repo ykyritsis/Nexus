@@ -40,6 +40,7 @@ public sealed partial class MoreSettingsView : UserControl, INexusView
         };
         _refreshing = true;
         StartupSwitch.IsOn = SetupChecks.StartWithWindows;
+        ToastSwitch.IsOn = _app.Settings.ControllerToasts;
         _refreshing = false;
     }
 
@@ -63,6 +64,13 @@ public sealed partial class MoreSettingsView : UserControl, INexusView
     {
         if (_refreshing) return;
         SetupChecks.StartWithWindows = StartupSwitch.IsOn;
+    }
+
+    void Toasts_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (_refreshing) return;
+        _app.Settings.ControllerToasts = ToastSwitch.IsOn;
+        _app.Settings.Save();
     }
 
     void Log_Click(object sender, RoutedEventArgs e)

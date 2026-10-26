@@ -13,6 +13,7 @@ public partial class App : Application
     ShellWindow? _shell;
     WindowHooks? _hooks;
     DispatcherQueue? _ui;
+    ControllerToasts? _toasts;
 
     public AppSettings Settings { get; }
     public GamepadService Gamepad { get; }
@@ -47,6 +48,7 @@ public partial class App : Application
         };
         // Holding Guide belongs to Windows (Xbox mode's task view), so Nexus only reacts to a press.
         Gamepad.NavButton += b => _ui.TryEnqueue(() => _shell.Navigator.Handle(b));
+        _toasts = new ControllerToasts(this, _ui);
 
         _hooks = new WindowHooks(_shell.Hwnd);
         _hooks.HotkeyPressed += () => _shell.Toggle();
@@ -65,10 +67,12 @@ public partial class App : Application
             () => _ui.TryEnqueue(Quit));
 
         _shell.Warm();
+        if (_args.Contains("--test-toast", StringComparer.OrdinalIgnoreCase))
+            _ui.TryEnqueue(DispatcherQueuePriority.Low, async () => { await Task.Delay(1500); _toasts.Test(); });
         // Started in the background (at login): trim straight away, the overlay isn't needed yet.
         if (_args.Contains("--background", StringComparer.OrdinalIgnoreCase))
             _ui.TryEnqueue(DispatcherQueuePriority.Low, async () => { await Task.Delay(3000); Native.TrimWorkingSet(); });
-        if (!_args.Contains("--background", StringComparer.OrdinalIgnoreCase))
+        if (!_args.Contains("--background", StringComparer.OrdinalIgnoreCase) && !_args.Contains("--test-toast", StringComparer.OrdinalIgnoreCase))
             _ui.TryEnqueue(DispatcherQueuePriority.Low, () => _shell.Show());
     }
 
