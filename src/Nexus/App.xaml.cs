@@ -49,7 +49,12 @@ public partial class App : Application
             _ui.TryEnqueue(() => _shell.Toggle(at));
         };
         // Holding Guide belongs to Windows (Xbox mode's task view), so Nexus only reacts to a press.
-        Gamepad.NavButton += b => _ui.TryEnqueue(() => _shell.Navigator.Handle(b));
+        Gamepad.NavButton += b => _ui.TryEnqueue(() =>
+        {
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            _shell.Navigator.Handle(b);
+            if (clock.ElapsedMilliseconds > 25) Log.Warn($"slow input: {b} took {clock.ElapsedMilliseconds} ms on {_shell.CurrentView?.Title}");
+        });
         _toasts = new ControllerToasts(this, _ui);
         Updater = new Updater(this, _ui);
 

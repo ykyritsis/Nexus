@@ -8,6 +8,8 @@ using Microsoft.UI.Xaml.Hosting;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
+using Microsoft.UI.Xaml.Media.Imaging;
+using System.Runtime.InteropServices.WindowsRuntime;
 using Nexus.Input;
 using Nexus.Interop;
 using Nexus.Services;
@@ -56,7 +58,9 @@ public sealed partial class ShellWindow : Window
         };
 
         ExtendsContentIntoTitleBar = true;
-        SystemBackdrop = new GlassBackdrop();
+        // See-through window; the blur is a still frame we draw ourselves (live acrylic cost a full-screen
+        // blur every frame the game drew, and dropped to a flat dark fill over games).
+        SystemBackdrop = new TransparentBackdrop();
         if (AppWindow.Presenter is OverlappedPresenter p)
         {
             p.IsAlwaysOnTop = true;
@@ -265,6 +269,8 @@ public sealed partial class ShellWindow : Window
 
         HideStory.Stop();
         Place(_previousForeground);
+        // Reopened while still fading out: the window is still up, keep the frame we already have.
+        if (!AppWindow.IsVisible) UpdateBackdrop();
         // Like a console guide: reopen on the tab you left, but not deep inside one of its sub-pages.
         if (tab != null || _subPages.Count > 0) SelectTab(tab ?? _tab, focus: false);
         _visible = true;
@@ -278,7 +284,7 @@ public sealed partial class ShellWindow : Window
         ElementSoundPlayer.Play(ElementSoundKind.Show);
         UpdateHeader();
         _clock.Start();
-        (ContentHost.Content as INexusView)?.OnShown();
+        if (ContentHost.Content is FrameworkElement current) ShowPageSoon(current);
         MoveLens(animate: false);
         FocusContent();
         Log.Info($"shown (foreground ok: {Native.GetForegroundWindow() == Hwnd})");
@@ -332,10 +338,31 @@ public sealed partial class ShellWindow : Window
     /// the screen width, centred.
     /// </summary>
     RectInt32 _placed;
+    Native.RECT _monitor;
+    WriteableBitmap? _backdrop;
+
+    /// <summary>Grabs and blurs the screen behind the overlay (before the overlay is shown).</summary>
+    void UpdateBackdrop()
+    {
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        var shot = ScreenBlur.Capture(_monitor);
+        if (shot is not { } s)
+        {
+            Backdrop.Source = null;
+            return;
+        }
+        if (_backdrop is null || _backdrop.PixelWidth != s.width || _backdrop.PixelHeight != s.height)
+            _backdrop = new WriteableBitmap(s.width, s.height);
+        using (var stream = _backdrop.PixelBuffer.AsStream()) stream.Write(s.pixels, 0, s.pixels.Length);
+        _backdrop.Invalidate();
+        Backdrop.Source = _backdrop;
+        if (clock.ElapsedMilliseconds > 30) Log.Info($"backdrop took {clock.ElapsedMilliseconds} ms");
+    }
 
     void Place(IntPtr near)
     {
         var (b, scale) = Native.MonitorOf(near);
+        _monitor = b;
         int w = b.Right - b.Left, h = b.Bottom - b.Top;
         // One pixel short of the full monitor: Windows treats a borderless window that exactly covers
         // the screen as a full-screen app and turns off its acrylic, leaving a flat dark fill.
@@ -442,7 +469,7 @@ public sealed partial class ShellWindow : Window
         TitleText.Text = view?.Title ?? "";
         SubHeader.Visibility = _subPages.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         RefreshHints();
-        if (_visible) view?.OnShown();
+        if (_visible) ShowPageSoon(page);
     }
 
     /// <summary>Re-reads the current page's X/Y hints (for pages whose actions depend on what they show).</summary>
@@ -456,6 +483,18 @@ public sealed partial class ShellWindow : Window
     }
 
     public INexusView? CurrentView => ContentHost.Content as INexusView;
+
+    /// <summary>
+    /// A page refreshes its data (audio devices, mixer, lists) just after it appears, not before: the
+    /// switch draws at once, and flicking past a tab with LB/RB skips its refresh entirely.
+    /// </summary>
+    void ShowPageSoon(FrameworkElement page)
+    {
+        DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () =>
+        {
+            if (_visible && ReferenceEquals(ContentHost.Content, page)) (page as INexusView)?.OnShown();
+        });
+    }
 
     /// <summary>Puts keyboard focus (with its ring) on the first control of the page.</summary>
     public void FocusContent()

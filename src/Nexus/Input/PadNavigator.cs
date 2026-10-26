@@ -76,6 +76,11 @@ public sealed class PadNavigator
             next.Focus(FocusState.Keyboard); // keyboard state = the system focus visual
             ElementSoundPlayer.Play(ElementSoundKind.Focus);
         }
+        else if (FocusManager.GetFocusedElement(_shell.NavRoot.XamlRoot) is not DependencyObject d || !_shell.InPanel(d))
+        {
+            // Focus was lost (its control went away mid-press): start again from the page instead of sticking.
+            _shell.FocusContent();
+        }
     }
 
     static void Nudge(Slider s, int dir)
