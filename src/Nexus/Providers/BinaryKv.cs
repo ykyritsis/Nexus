@@ -5,7 +5,7 @@ namespace Nexus.Providers;
 /// <summary>
 /// Reader for Steam's binary KeyValues files (appcache\stats). Each entry is a type byte, a
 /// null-terminated key, then a value: 0 = nested block (ends with 8), 1 = string, 2 = int32,
-/// 3 = float32, 7 = uint64.
+/// 3 = float32, 4 = pointer, 6 = colour, 7 = uint64, 10 = int64.
 /// </summary>
 public sealed class BinaryKv
 {
@@ -47,6 +47,8 @@ public sealed class BinaryKv
                 case 0x02: Values[key] = BitConverter.ToInt32(d, pos); pos += 4; break;
                 case 0x03: Values[key] = BitConverter.ToSingle(d, pos); pos += 4; break;
                 case 0x07: Values[key] = BitConverter.ToUInt64(d, pos); pos += 8; break;
+                case 0x04: case 0x06: Values[key] = BitConverter.ToInt32(d, pos); pos += 4; break; // pointer, colour
+                case 0x0A: Values[key] = BitConverter.ToInt64(d, pos); pos += 8; break;
                 default: pos = d.Length; return; // unknown type: stop rather than misread
             }
         }

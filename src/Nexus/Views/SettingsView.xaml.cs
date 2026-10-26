@@ -57,6 +57,8 @@ public sealed partial class SettingsView : UserControl, INexusView
 
     // ---------------- refresh ----------------
 
+    string? _outputId = "";
+
     void RefreshAudio()
     {
         _updating = true;
@@ -77,8 +79,13 @@ public sealed partial class SettingsView : UserControl, INexusView
                 if (VolumeSlider.FocusState == FocusState.Unfocused) VolumeSlider.Value = Math.Round(spk.volume * 100);
                 VolumeValue.Text = $"{Math.Round(spk.volume * 100)}";
             }
+            // The device list is only read again when the default output actually changes.
             var id = _audio.DefaultId(DataFlow.Render);
-            OutputName.Text = _audio.Devices(DataFlow.Render).FirstOrDefault(d => d.Id == id)?.Name ?? "No output device";
+            if (id != _outputId)
+            {
+                _outputId = id;
+                OutputName.Text = _audio.Devices(DataFlow.Render).FirstOrDefault(d => d.Id == id)?.Name ?? "No output device";
+            }
         }
         catch (Exception ex) { Log.Error("settings audio refresh", ex); }
         finally { _updating = false; }
@@ -172,10 +179,10 @@ public sealed partial class SettingsView : UserControl, INexusView
         Launch.Open("ms-settings:network-status");
     }
 
-    void Keyboard_Click(object sender, RoutedEventArgs e)
+    async void Keyboard_Click(object sender, RoutedEventArgs e)
     {
         _shell.Hide();
-        SystemStatus.ToggleTouchKeyboard();
+        await SystemStatus.ToggleTouchKeyboardAsync();
     }
 
     void Cursor_Click(object sender, RoutedEventArgs e)

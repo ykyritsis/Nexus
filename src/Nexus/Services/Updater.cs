@@ -35,9 +35,24 @@ public sealed class Updater
     public bool UpdateReady => _ready != null;
     public event Action? StatusChanged;
 
+    static string Folder => Path.Combine(Log.Folder, "update");
+    static string AttemptFile => Path.Combine(Folder, "attempted.txt");
+    Version? _failed; // a version whose install didn't take; not tried again
+
     public Updater(App app, DispatcherQueue ui)
     {
         _app = app;
+        // Started again after an install: if we're still older than what was installed, it failed
+        // (say the folder wasn't writable). Remember that instead of restarting every few minutes.
+        try
+        {
+            if (File.Exists(AttemptFile) && Version.TryParse(File.ReadAllText(AttemptFile).Trim(), out var tried))
+            {
+                if (Normal(Current) < Normal(tried)) { _failed = tried; Log.Warn($"update {tried} didn't install; not retrying it"); }
+                else File.Delete(AttemptFile);
+            }
+        }
+        catch { }
         _check = ui.CreateTimer();
         _check.Interval = TimeSpan.FromMinutes(2); // first check soon after start, then every 6 h
         _check.Tick += async (_, _) => { _check.Interval = TimeSpan.FromHours(6); await CheckAsync(); };
@@ -76,12 +91,22 @@ public sealed class Updater
                 SetStatus($"Up to date · checked {DateTime.Now:h:mm tt}");
                 return;
             }
+            if (_failed != null && Normal(latest) <= Normal(_failed))
+            {
+                SetStatus($"Version {latest.ToString(3)} couldn't be installed here");
+                return;
+            }
+            if (!CanWrite(AppContext.BaseDirectory))
+            {
+                SetStatus("Can't update: Nexus's folder isn't writable");
+                return;
+            }
             var url = release?["assets"]?.AsArray()
                 .FirstOrDefault(a => (string?)a?["name"] == AssetName)?["browser_download_url"]?.GetValue<string>();
             if (url is null) { SetStatus($"Version {latest.ToString(3)} has no download yet"); return; }
 
             SetStatus($"Downloading version {latest.ToString(3)}…");
-            var folder = Path.Combine(Log.Folder, "update");
+            var folder = Folder;
             var zip = Path.Combine(folder, $"Nexus-{latest}.zip");
             var target = Path.Combine(folder, latest.ToString());
             Directory.CreateDirectory(folder);
@@ -119,7 +144,8 @@ public sealed class Updater
         try
         {
             var dest = AppContext.BaseDirectory.TrimEnd('\\');
-            var script = Path.Combine(Log.Folder, "update", "install.cmd");
+            var script = Path.Combine(Folder, "install.cmd");
+            File.WriteAllText(AttemptFile, _readyVersion!.ToString());
             int pid = Environment.ProcessId;
             // Wait for this copy to exit, copy the new files over it, start it again.
             File.WriteAllText(script, $"""
@@ -145,6 +171,18 @@ public sealed class Updater
 
     /// <summary>Treats 0.1.5 and 0.1.5.0 as the same version.</summary>
     static Version Normal(Version v) => new(v.Major, v.Minor, Math.Max(v.Build, 0), Math.Max(v.Revision, 0));
+
+    static bool CanWrite(string dir)
+    {
+        try
+        {
+            var probe = Path.Combine(dir, $".nexus-write-{Environment.ProcessId}");
+            File.WriteAllText(probe, "");
+            File.Delete(probe);
+            return true;
+        }
+        catch { return false; }
+    }
 
     static bool FindProject()
     {

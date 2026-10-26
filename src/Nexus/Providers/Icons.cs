@@ -13,7 +13,9 @@ public static class Icons
     public static async Task<BitmapImage?> LoadAsync(string? path, uint size = 96)
     {
         if (string.IsNullOrEmpty(path) || !File.Exists(path)) return null;
-        if (Cache.TryGetValue(path, out var cached)) return cached;
+        // Keyed by size too: a picture decoded small for one place must not be reused blown up in another.
+        var key = $"{path}|{size}";
+        if (Cache.TryGetValue(key, out var cached)) return cached;
         try
         {
             BitmapImage image;
@@ -29,7 +31,8 @@ public static class Icons
                 image = new BitmapImage();
                 await image.SetSourceAsync(thumb);
             }
-            Cache[path] = image;
+            if (Cache.Count >= 128) Cache.Clear(); // keep it bounded; anything still on screen holds its own reference
+            Cache[key] = image;
             return image;
         }
         catch (Exception ex)

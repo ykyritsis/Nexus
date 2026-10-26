@@ -38,12 +38,16 @@ public static class SystemStatus
     }
 
     // ---------------- radios ----------------
+    // Radio objects track their state live, so the list is fetched once (Settings asks several times per open).
+    static IReadOnlyList<Radio>? _radios;
+
     static async Task<IReadOnlyList<Radio>> RadiosAsync()
     {
+        if (_radios is { Count: > 0 }) return _radios;
         try
         {
             if (await Radio.RequestAccessAsync() != RadioAccessStatus.Allowed) return Array.Empty<Radio>();
-            return await Radio.GetRadiosAsync();
+            return _radios = await Radio.GetRadiosAsync();
         }
         catch (Exception ex)
         {
@@ -115,7 +119,7 @@ public static class SystemStatus
 
     [DllImport("user32.dll")] static extern IntPtr GetDesktopWindow();
 
-    public static void ToggleTouchKeyboard()
+    public static async Task ToggleTouchKeyboardAsync()
     {
         try
         {
@@ -126,7 +130,7 @@ public static class SystemStatus
                 var tabTip = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonProgramFiles),
                     "microsoft shared", "ink", "TabTip.exe");
                 using var _ = Process.Start(new ProcessStartInfo(tabTip) { UseShellExecute = true });
-                Thread.Sleep(350);
+                await Task.Delay(350); // let it start before asking it to show
             }
             ((ITipInvocation)new UIHostNoLaunch()).Toggle(GetDesktopWindow());
         }

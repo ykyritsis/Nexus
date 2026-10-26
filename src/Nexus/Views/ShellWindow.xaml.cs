@@ -316,6 +316,28 @@ public sealed partial class ShellWindow : Window
         });
     }
 
+    /// <summary>
+    /// After a page rebuilds its items (cards loaded a moment after opening), focus can be left on an
+    /// element that is gone, which leaves the controller with nothing to move from. Put it back.
+    /// </summary>
+    public void EnsureFocus(Control? preferred = null)
+    {
+        if (!_visible) return;
+        var focused = FocusManager.GetFocusedElement(Panel.XamlRoot) as DependencyObject;
+        if (focused != null && IsInside(focused, Panel)) return;
+        if (preferred != null && preferred.Focus(FocusState.Keyboard)) return;
+        FocusContent();
+    }
+
+    public bool InPanel(DependencyObject element) => IsInside(element, Panel);
+
+    static bool IsInside(DependencyObject element, DependencyObject root)
+    {
+        for (var e = element; e != null; e = VisualTreeHelper.GetParent(e))
+            if (ReferenceEquals(e, root)) return true;
+        return false;
+    }
+
     void UpdateHeader()
     {
         ClockText.Text = DateTime.Now.ToString("h:mm");

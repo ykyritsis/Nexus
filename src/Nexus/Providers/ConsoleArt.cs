@@ -45,8 +45,30 @@ public static class ConsoleArt
             : null;
     }
 
+    // Home's tiles and the Now Playing card can ask for the same game at once; they share one lookup
+    // so two downloads never race on the same file (and a failed one can't record a false "miss").
+    static readonly Dictionary<string, Task> InFlight = new();
+
+    static Task<T> Once<T>(string key, Func<Task<T>> work)
+    {
+        lock (InFlight)
+        {
+            if (InFlight.TryGetValue(key, out var running)) return (Task<T>)running;
+            var task = Run();
+            InFlight[key] = task;
+            return task;
+        }
+        async Task<T> Run()
+        {
+            try { return await work(); }
+            finally { lock (InFlight) InFlight.Remove(key); }
+        }
+    }
+
     /// <summary>Looks the game up if it hasn't been checked recently. Returns the art, or null.</summary>
-    public static async Task<Found?> ResolveAsync(string key, string title)
+    public static Task<Found?> ResolveAsync(string key, string title) => Once($"resolve:{key}", () => ResolveCoreAsync(key, title));
+
+    static async Task<Found?> ResolveCoreAsync(string key, string title)
     {
         await Gate.WaitAsync();
         try
@@ -88,7 +110,9 @@ public static class ConsoleArt
     /// Steam's official logo and scenic hero art for a game whose local Steam cache lacks them,
     /// from Steam's image server. Downloaded once; a missing file is remembered for a week.
     /// </summary>
-    public static async Task<(string? hero, string? logo)> SteamOfficialAsync(string appId)
+    public static Task<(string? hero, string? logo)> SteamOfficialAsync(string appId) => Once($"steam:{appId}", () => SteamOfficialCoreAsync(appId));
+
+    static async Task<(string? hero, string? logo)> SteamOfficialCoreAsync(string appId)
     {
         if (!appId.All(char.IsDigit)) return (null, null);
         var key = $"steamcdn:{appId}";

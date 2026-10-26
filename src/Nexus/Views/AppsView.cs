@@ -22,6 +22,7 @@ public sealed class AppsView : UserControl, INexusView
         public required Border Preview;
         public required TextBlock Title;
         public IntPtr Thumb;
+        public (int x, int y, int w, int h, bool visible) Placed; // last position sent to DWM
     }
 
     readonly App _app;
@@ -77,7 +78,7 @@ public sealed class AppsView : UserControl, INexusView
     {
         _place.Stop();
         _refresh.Stop();
-        foreach (var c in _list) { Providers.OpenWindows.Unregister(c.Thumb); c.Thumb = IntPtr.Zero; }
+        foreach (var c in _list) { Providers.OpenWindows.Unregister(c.Thumb); c.Thumb = IntPtr.Zero; c.Placed = default; }
     }
 
     void Refresh()
@@ -87,6 +88,8 @@ public sealed class AppsView : UserControl, INexusView
         _empty.Visibility = windows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         if (key == _key)
         {
+            // An app may have been resized: let the next placement refit its thumbnail.
+            foreach (var c in _list) c.Placed = default;
             foreach (var c in _list)
                 if (windows.FirstOrDefault(w => w.Handle == c.Window.Handle) is { } w && w.Title != c.Window.Title)
                     c.Title.Text = w.Title;
@@ -174,8 +177,11 @@ public sealed class AppsView : UserControl, INexusView
             catch { continue; }
             bool inside = r.Width > 0 && r.Left >= view.Left - 1 && r.Right <= view.Right + 1;
             const double inset = 2;
-            Providers.OpenWindows.Place(c.Thumb, (int)((r.Left + inset) * scale), (int)((r.Top + inset) * scale),
+            var place = ((int)((r.Left + inset) * scale), (int)((r.Top + inset) * scale),
                 (int)((r.Width - inset * 2) * scale), (int)((r.Height - inset * 2) * scale), inside);
+            if (place == c.Placed) continue; // only talk to DWM when a card actually moved (scrolling)
+            c.Placed = place;
+            Providers.OpenWindows.Place(c.Thumb, place.Item1, place.Item2, place.Item3, place.Item4, inside);
         }
     }
 

@@ -37,7 +37,13 @@ internal sealed class TrayIcon : IDisposable
 
     readonly IntPtr _hWnd;
     readonly (string text, Action action)[] _items;
+    readonly IntPtr _icon;
+    readonly string _tip;
     bool _added;
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern uint RegisterWindowMessage(string name);
+    // Sent to every top-level window when Explorer (and so the taskbar) restarts: the icon must be added again.
+    static readonly uint TaskbarCreated = RegisterWindowMessage("TaskbarCreated");
 
     public event Action? Clicked;
 
@@ -45,11 +51,18 @@ internal sealed class TrayIcon : IDisposable
     {
         _hWnd = hWnd;
         _items = menu;
+        _icon = LoadImage(IntPtr.Zero, iconPath, 1 /*IMAGE_ICON*/, 32, 32, 0x10 /*LR_LOADFROMFILE*/);
+        _tip = tip;
+        Add();
+    }
+
+    void Add()
+    {
         var data = Data();
         data.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
         data.uCallbackMessage = (int)CallbackMessage;
-        data.hIcon = LoadImage(IntPtr.Zero, iconPath, 1 /*IMAGE_ICON*/, 32, 32, 0x10 /*LR_LOADFROMFILE*/);
-        data.szTip = tip;
+        data.hIcon = _icon;
+        data.szTip = _tip;
         _added = Shell_NotifyIcon(NIM_ADD, ref data);
     }
 
@@ -62,6 +75,11 @@ internal sealed class TrayIcon : IDisposable
     /// <summary>Handles the tray callback message; returns true if it was ours.</summary>
     public bool HandleMessage(uint msg, IntPtr lParam)
     {
+        if (msg == TaskbarCreated && TaskbarCreated != 0)
+        {
+            Add();
+            return false; // let others see it too
+        }
         if (msg != CallbackMessage) return false;
         uint ev = (uint)(lParam.ToInt64() & 0xFFFF);
         if (ev == WM_LBUTTONUP) Clicked?.Invoke();

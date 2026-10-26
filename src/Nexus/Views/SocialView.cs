@@ -83,6 +83,7 @@ public sealed class SocialView : UserControl, INexusView
         _empty.Text = friends.Count == 0 ? "No Steam friends found on this PC." : "";
         _empty.Visibility = friends.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         foreach (var f in friends) _cards.Children.Add(Card(f));
+        _shell.EnsureFocus(_cards.Children.FirstOrDefault() as Control);
     }
 
     Button Card(Friend f)

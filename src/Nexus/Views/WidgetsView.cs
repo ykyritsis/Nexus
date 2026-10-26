@@ -64,6 +64,7 @@ public sealed class WidgetsView : UserControl, INexusView
         UpdateApps();
         _ = UpdateGalleryAsync();
         UpdateDisplayLabels();
+        UpdateCapture();
         _perfTimer.Start();
         _appsTimer.Start();
     }
@@ -164,14 +165,23 @@ public sealed class WidgetsView : UserControl, INexusView
         var clip = Pill("", "Record last 30 s", () => ForGame(Captures.RecordThat));
         panel.Children.Add(clip);
         panel.Children.Add(Pill("", "Record / stop", () => ForGame(Captures.ToggleRecording)));
-        if (!Captures.BackgroundRecording)
-        {
-            clip.IsEnabled = false;
-            var hint = new HyperlinkButton { Content = "Turn on background recording", Padding = new Thickness(4, 2, 4, 2), Foreground = (Brush)Res["SubtleTextBrush"], FontSize = 12 };
-            hint.Click += (_, _) => { _shell.Hide(restoreFocus: false); Launch.Open("ms-settings:gaming-gamedvr"); };
-            panel.Children.Add(hint);
-        }
+        _recordHint = new HyperlinkButton { Content = "Turn on background recording", Padding = new Thickness(4, 2, 4, 2), Foreground = (Brush)Res["SubtleTextBrush"], FontSize = 12 };
+        _recordHint.Click += (_, _) => { _shell.Hide(restoreFocus: false); Launch.Open("ms-settings:gaming-gamedvr"); };
+        panel.Children.Add(_recordHint);
+        _clipButton = clip;
+        UpdateCapture();
         return panel;
+    }
+
+    Button? _clipButton;
+    HyperlinkButton? _recordHint;
+
+    /// <summary>"Record last 30 s" needs background recording; re-checked each time, as it can be turned on in Settings.</summary>
+    void UpdateCapture()
+    {
+        bool on = Captures.BackgroundRecording;
+        if (_clipButton != null) _clipButton.IsEnabled = on;
+        if (_recordHint != null) _recordHint.Visibility = on ? Visibility.Collapsed : Visibility.Visible;
     }
 
     // ---------------- Display ----------------

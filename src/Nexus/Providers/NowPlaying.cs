@@ -53,6 +53,8 @@ public static class NowPlaying
             }
             _cached = pid == 0 ? null : (appId, pid);
         }
+        // Steam can leave RunningAppID set after a crash; with no process from the game's folder it isn't running.
+        if (pid == 0) return null;
         var window = WindowOf((uint)pid, previousForeground);
         return new PlayingGame(game, appId.ToString(), (uint)pid, window,
             started == DateTime.MaxValue ? null : started, pid == 0 ? null : Native.ProcessPath((uint)pid));

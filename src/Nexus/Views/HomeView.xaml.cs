@@ -163,6 +163,13 @@ public sealed partial class HomeView : UserControl, INexusView
             built.Add((games[i], tile, size));
         }
         if (games.Count > 0 && RecentGrid.Visibility == Visibility.Visible) Focused(games[0], first: true);
+        // Tiles arrive just after the page opens: start on the first one rather than wherever focus fell.
+        if (RecentGrid.Visibility == Visibility.Visible && Tiles.Children.FirstOrDefault() is Control firstTile)
+        {
+            var focused = Microsoft.UI.Xaml.Input.FocusManager.GetFocusedElement(XamlRoot);
+            if (focused is not DependencyObject d || ReferenceEquals(d, HomeButton) || !_shell.InPanel(d))
+                firstTile.Focus(FocusState.Keyboard);
+        }
 
         // Fill in missing art in the background: Steam's official logo and scene first (for the clean
         // centred-logo look), then console art for anything still without a logo.

@@ -106,13 +106,14 @@ public sealed class AudioService
             {
                 uint pid = s.GetProcessID;
                 if (pid == (uint)Environment.ProcessId) continue; // Nexus's own navigation sounds
-                var path = Native.ProcessPath(pid);
+                if (!_paths.TryGetValue(pid, out var path)) _paths[pid] = path = Native.ProcessPath(pid);
                 var key = path is null ? $"pid{pid}" : Path.GetFileNameWithoutExtension(path);
                 if (!apps.TryGetValue(key, out app!))
                     apps[key] = app = new MixerApp { Key = key, Name = FriendlyName(path, key, s.DisplayName), ExePath = path };
             }
             app.Sessions.Add(s);
         }
+        if (_paths.Count > 256) _paths.Clear(); // process ids get reused; start over now and then
         foreach (var app in apps.Values)
         {
             app.Volume = app.Sessions.Max(x => x.SimpleAudioVolume.Volume);
@@ -121,15 +122,22 @@ public sealed class AudioService
         return apps.Values.ToList();
     }
 
+    // The mixer refreshes every second; process paths and exe descriptions don't change, so keep them.
+    readonly Dictionary<uint, string?> _paths = new();
+    static readonly Dictionary<string, string> Descriptions = new(StringComparer.OrdinalIgnoreCase);
+
     static string FriendlyName(string? path, string key, string displayName)
     {
         if (!string.IsNullOrWhiteSpace(displayName) && !displayName.StartsWith('@')) return displayName;
+        if (path is null) return key;
+        if (Descriptions.TryGetValue(path, out var cached)) return cached;
+        string name = key;
         try
         {
-            if (path != null && FileVersionInfo.GetVersionInfo(path).FileDescription is { Length: > 0 } desc) return desc;
+            if (FileVersionInfo.GetVersionInfo(path).FileDescription is { Length: > 0 } desc) name = desc;
         }
         catch { }
-        return key;
+        return Descriptions[path] = name;
     }
 
     public static void SetAppVolume(MixerApp app, float value)
