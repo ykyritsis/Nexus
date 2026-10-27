@@ -18,14 +18,14 @@ namespace Nexus.Services;
 /// While the guide is open the virtual controller simply reports nothing pressed. Games only ever see
 /// one controller that never disconnects; outside games nothing is hidden or mirrored.
 ///
-/// HidHide only takes changes from an elevated process, so a one-time setup (one admin prompt)
-/// registers Nexus, marks the controller to hide and creates two scheduled tasks that switch hiding
-/// on and off; Nexus runs those tasks unelevated. A watchdog switches hiding off if Nexus ever exits
-/// without doing so, so the controller is never left hidden.
+/// A one-time setup (one admin prompt) installs the two drivers, registers Nexus with HidHide and
+/// marks the controller to hide; Nexus then switches hiding on and off itself with HidHide's CLI,
+/// which works unelevated. A watchdog switches hiding off if Nexus ever exits without doing so, so
+/// the controller is never left hidden.
 /// </summary>
 public sealed class InputBridge : IDisposable
 {
-    const string OnTask = @"Nexus\HidHide on", OffTask = @"Nexus\HidHide off";
+
     const ushort GuideButton = 0x0400;
 
     static readonly string[] CliPaths =
@@ -78,9 +78,9 @@ public sealed class InputBridge : IDisposable
 
     async Task InitAsync()
     {
-        _setUp = DriversInstalled && await Task.Run(() => TaskExists(OnTask) && TaskExists(OffTask));
+        _setUp = DriversInstalled && await Task.Run(EnsureConfigured);
         // Hiding persists across restarts: if Nexus or the PC went down mid-game, start from visible.
-        if (_setUp) await Task.Run(() => RunTask(OffTask));
+        if (_setUp) await Task.Run(() => Cloak(false));
         UpdateStatus();
         _poll.Start();
     }
@@ -119,7 +119,7 @@ public sealed class InputBridge : IDisposable
         try
         {
             // Hide the real controller first, so the virtual one takes its player slot.
-            await Task.Run(() => RunTask(OnTask));
+            await Task.Run(() => Cloak(true));
             StartWatchdog();
             await Task.Delay(400);
 
@@ -154,7 +154,7 @@ public sealed class InputBridge : IDisposable
         _client?.Dispose();
         _client = null;
         _app.Gamepad.IgnoredSlot = -1;
-        await Task.Run(() => RunTask(OffTask));
+        await Task.Run(() => Cloak(false));
         StopWatchdog();
         Log.Info($"input bridge off ({why})");
         UpdateStatus();
@@ -252,7 +252,7 @@ public sealed class InputBridge : IDisposable
     /// <summary>
     /// One-time setup, one admin prompt, everything in it: download the two drivers (pinned official
     /// releases, refused unless signed by Nefarius), install them silently, register Nexus with
-    /// HidHide, mark the Xbox controller(s) to hide and create the on/off tasks.
+    /// HidHide and mark the Xbox controller(s) to hide.
     /// </summary>
     public async Task<bool> SetUpAsync()
     {
@@ -292,8 +292,6 @@ public sealed class InputBridge : IDisposable
                     Where-Object { $_ -match 'VID_045E' -and $_ -notmatch 'PID_028E' } | Select-Object -Unique
                 foreach ($p in $paths) { & $cli --dev-hide $p }
                 & $cli --cloak-off
-                schtasks /create /tn '{{OnTask}}' /tr "`"$cli`" --cloak-on" /sc once /st 00:00 /rl highest /f | Out-Null
-                schtasks /create /tn '{{OffTask}}' /tr "`"$cli`" --cloak-off" /sc once /st 00:00 /rl highest /f | Out-Null
                 $log += "controllers marked: $(@($paths).Count)"
             } catch { $log += "error: $($_.Exception.Message)" }
             Set-Content -Path '{{result}}' -Value ($log -join '; ')
@@ -308,7 +306,7 @@ public sealed class InputBridge : IDisposable
         }
         catch (Exception ex) { Log.Warn($"input bridge setup cancelled: {ex.Message}"); return false; }
 
-        _setUp = await Task.Run(() => TaskExists(OnTask) && TaskExists(OffTask));
+        _setUp = DriversInstalled && await Task.Run(EnsureConfigured);
         Log.Info($"input bridge setup: {(_setUp && DriversInstalled ? "done" : "failed")} ({(File.Exists(result) ? File.ReadAllText(result).Trim() : "no result")})");
         if (_setUp) { _app.Settings.LockGameInput = true; _app.Settings.Save(); }
         UpdateStatus();
@@ -330,7 +328,7 @@ public sealed class InputBridge : IDisposable
                 @echo off
                 :wait
                 tasklist /FI "PID eq {pid}" | find "{pid}" >nul && (timeout /t 2 /nobreak >nul & goto wait)
-                schtasks /run /tn "{OffTask}" >nul
+                "{Cli}" --cloak-off >nul
                 """);
             _watchdog = Process.Start(new ProcessStartInfo("cmd.exe", $"/c \"{script}\"") { UseShellExecute = false, CreateNoWindow = true });
         }
@@ -344,8 +342,37 @@ public sealed class InputBridge : IDisposable
         _watchdog = null;
     }
 
-    static bool RunTask(string name) => Run("schtasks.exe", $"/run /tn \"{name}\"");
-    static bool TaskExists(string name) => Run("schtasks.exe", $"/query /tn \"{name}\"");
+    /// <summary>Switches hiding on or off. HidHide accepts this from a normal (unelevated) process.</summary>
+    static bool Cloak(bool on) => Cli is { } cli && Run(cli, on ? "--cloak-on" : "--cloak-off");
+
+    /// <summary>
+    /// Nexus allowed to see hidden devices and the controller on the hide list. Fixed up here when
+    /// HidHide allows it without admin (e.g. Nexus moved to a new folder); otherwise Set up does it.
+    /// </summary>
+    static bool EnsureConfigured()
+    {
+        if (Cli is not { } cli) return false;
+        var exe = Environment.ProcessPath ?? "";
+        if (!Output(cli, "--app-list").Contains(exe, StringComparison.OrdinalIgnoreCase))
+            Run(cli, $"--app-reg \"{exe}\"");
+        bool registered = Output(cli, "--app-list").Contains(exe, StringComparison.OrdinalIgnoreCase);
+        bool hidden = Output(cli, "--dev-list").Contains("--dev-hide", StringComparison.OrdinalIgnoreCase);
+        if (!registered || !hidden) Log.Info($"input bridge: HidHide {(registered ? "" : "doesn't list Nexus")}{(registered || hidden ? "" : ", ")}{(hidden ? "" : "has no controller to hide")}");
+        return registered && hidden;
+    }
+
+    static string Output(string exe, string args)
+    {
+        try
+        {
+            using var p = Process.Start(new ProcessStartInfo(exe, args) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true });
+            if (p is null) return "";
+            var text = p.StandardOutput.ReadToEnd();
+            p.WaitForExit(5000);
+            return text;
+        }
+        catch { return ""; }
+    }
 
     static bool Run(string exe, string args)
     {
@@ -393,7 +420,7 @@ public sealed class InputBridge : IDisposable
         try { _pad?.Disconnect(); } catch { }
         _client?.Dispose();
         _app.Gamepad.IgnoredSlot = -1;
-        RunTask(OffTask);
+        Cloak(false);
         StopWatchdog();
         Log.Info("input bridge off (quitting)");
     }

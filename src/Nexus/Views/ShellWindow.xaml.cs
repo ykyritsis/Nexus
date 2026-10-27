@@ -439,6 +439,7 @@ public sealed partial class ShellWindow : Window
     /// <summary>Sets up the GPU device and effects ahead of time, so the first open doesn't pay for it.</summary>
     void PrepareBackdrop()
     {
+        _ = HdrBackdrop.RequestBorderlessAsync();
         try { if (HdrBackdrop.Supported) _hdr ??= new HdrBackdrop(SharpFrame, Backdrop); }
         catch (Exception ex) { Log.Warn($"HDR backdrop unavailable: {ex.Message}"); _hdrFailures = 3; }
     }

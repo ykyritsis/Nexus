@@ -71,6 +71,31 @@ public sealed class HdrBackdrop : IDisposable
 
     public static bool Supported => GraphicsCaptureSession.IsSupported();
 
+    static bool _borderAsked;
+
+    /// <summary>
+    /// Windows outlines anything being captured unless the app has been granted borderless capture;
+    /// setting IsBorderRequired = false alone is ignored without it. Asked once (desktop apps are
+    /// granted without a prompt).
+    /// </summary>
+    public static async Task RequestBorderlessAsync()
+    {
+        if (_borderAsked) return;
+        _borderAsked = true;
+        try
+        {
+            var status = await GraphicsCaptureAccess.RequestAccessAsync(GraphicsCaptureAccessKind.Borderless);
+            Log.Info($"borderless capture: {status}");
+        }
+        catch (Exception ex) { Log.Warn($"borderless capture unavailable: {ex.Message}"); }
+    }
+
+    static void NoBorder(GraphicsCaptureSession session)
+    {
+        try { session.IsBorderRequired = false; }
+        catch (Exception ex) { Log.Warn($"capture border can't be turned off: {ex.Message}"); }
+    }
+
     /// <summary>Captures and blurs the monitor. False if anything fails (the caller falls back to GDI).</summary>
     /// <param name="sdrWhiteNits">The display's SDR white level in HDR mode, or 0 for an SDR display.</param>
     public async Task<bool> CaptureAsync(IntPtr monitor, double sdrWhiteNits, TimeSpan timeout)
@@ -88,7 +113,7 @@ public sealed class HdrBackdrop : IDisposable
             pool = Direct3D11CaptureFramePool.CreateFreeThreaded(_device, DirectXPixelFormat.R16G16B16A16Float, 1, size);
             session = pool.CreateCaptureSession(item);
             session.IsCursorCaptureEnabled = false;
-            try { session.IsBorderRequired = false; } catch { } // no yellow capture border where allowed
+            NoBorder(session);
 
             var arrived = new TaskCompletionSource<Direct3D11CaptureFrame>(TaskCreationOptions.RunContinuationsAsynchronously);
             pool.FrameArrived += (p, _) => { var f = p.TryGetNextFrame(); if (f != null && !arrived.TrySetResult(f)) f.Dispose(); };
@@ -149,7 +174,7 @@ public sealed class HdrBackdrop : IDisposable
             pool.FrameArrived += OnLiveFrame;
             var session = pool.CreateCaptureSession(item);
             session.IsCursorCaptureEnabled = false;
-            try { session.IsBorderRequired = false; } catch { }
+            NoBorder(session);
             lock (_liveGate) { _livePool = pool; _liveSession = session; _liveDrawing = true; }
             session.StartCapture();
             return true;
