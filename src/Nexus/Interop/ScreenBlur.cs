@@ -33,7 +33,7 @@ internal static class ScreenBlur
     const uint SRCCOPY = 0x00CC0020;
 
     /// <summary>A blurred BGRA image of a screen area, about <paramref name="width"/> pixels wide; null if capture fails.</summary>
-    public static (byte[] pixels, int width, int height)? Capture(Native.RECT area, int width = 1280, int radius = 1, int passes = 2)
+    public static (byte[] pixels, byte[] sharp, int width, int height)? Capture(Native.RECT area, int width = 1280, int radius = 1, int passes = 2)
     {
         int sw = area.Right - area.Left, sh = area.Bottom - area.Top;
         if (sw <= 0 || sh <= 0) return null;
@@ -59,6 +59,7 @@ internal static class ScreenBlur
             var px = new byte[w * h * 4];
             Marshal.Copy(bits, px, 0, px.Length);
             for (int i = 3; i < px.Length; i += 4) px[i] = 255;
+            var sharp = (byte[])px.Clone();
             // Repeated box blurs approximate a gaussian; a light frost, so the game stays recognisable.
             var tmp = new byte[px.Length];
             for (int pass = 0; pass < passes; pass++)
@@ -66,7 +67,7 @@ internal static class ScreenBlur
                 BoxBlur(px, tmp, w, h, radius, horizontal: true);
                 BoxBlur(tmp, px, w, h, radius, horizontal: false);
             }
-            return (px, w, h);
+            return (px, sharp, w, h);
         }
         catch { return null; }
         finally

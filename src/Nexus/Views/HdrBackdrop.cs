@@ -37,17 +37,35 @@ public sealed class HdrBackdrop : IDisposable
 
     readonly CanvasDevice _device;
     readonly CompositionGraphicsDevice _graphics;
-    readonly SpriteVisual _visual;
-    CompositionDrawingSurface? _surface;
+    // Two layers from one capture: the frame as it is (shown the instant the overlay opens, so nothing
+    // jumps) and the blurred one that fades in over it.
+    readonly SpriteVisual _sharpVisual, _visual;
+    CompositionDrawingSurface? _sharp, _surface;
 
-    public HdrBackdrop(UIElement host)
+    public HdrBackdrop(UIElement sharpHost, UIElement blurHost)
     {
         _device = CanvasDevice.GetSharedDevice();
-        var compositor = ElementCompositionPreview.GetElementVisual(host).Compositor;
+        var compositor = ElementCompositionPreview.GetElementVisual(blurHost).Compositor;
         _graphics = CanvasComposition.CreateCompositionGraphicsDevice(compositor, _device);
+        _sharpVisual = compositor.CreateSpriteVisual();
+        _sharpVisual.RelativeSizeAdjustment = Vector2.One;
+        ElementCompositionPreview.SetElementChildVisual(sharpHost, _sharpVisual);
         _visual = compositor.CreateSpriteVisual();
         _visual.RelativeSizeAdjustment = Vector2.One;
-        ElementCompositionPreview.SetElementChildVisual(host, _visual);
+        ElementCompositionPreview.SetElementChildVisual(blurHost, _visual);
+    }
+
+    CompositionDrawingSurface Surface(ref CompositionDrawingSurface? surface, SpriteVisual visual, int w, int h)
+    {
+        if (surface is null || surface.SizeInt32.Width != w || surface.SizeInt32.Height != h)
+        {
+            surface?.Dispose();
+            surface = _graphics.CreateDrawingSurface2(new SizeInt32(w, h), Microsoft.Graphics.DirectX.DirectXPixelFormat.B8G8R8A8UIntNormalized, Microsoft.Graphics.DirectX.DirectXAlphaMode.Premultiplied);
+            var brush = visual.Compositor.CreateSurfaceBrush(surface);
+            brush.Stretch = CompositionStretch.Fill;
+            visual.Brush = brush;
+        }
+        return surface;
     }
 
     public static bool Supported => GraphicsCaptureSession.IsSupported();
@@ -80,19 +98,17 @@ public sealed class HdrBackdrop : IDisposable
             using var frame = await arrived.Task;
             frameMs = clock.ElapsedMilliseconds;
             using var bitmap = CanvasBitmap.CreateFromDirect3D11Surface(_device, frame.Surface);
+            float exposure = ExposureFor(sdrWhiteNits);
+            var sharp = Surface(ref _sharp, _sharpVisual, size.Width, size.Height);
+            using (var ds = CanvasComposition.CreateDrawingSession(sharp))
+                Render(ds, bitmap, exposure, 1f, blur: false);
             // Half resolution is plenty for a blur and quarters the work.
-            int w = Math.Max(1, size.Width / 2), h = Math.Max(1, size.Height / 2);
-            if (_surface is null || _surface.SizeInt32.Width != w || _surface.SizeInt32.Height != h)
-            {
-                _surface?.Dispose();
-                _surface = _graphics.CreateDrawingSurface2(new SizeInt32(w, h), Microsoft.Graphics.DirectX.DirectXPixelFormat.B8G8R8A8UIntNormalized, Microsoft.Graphics.DirectX.DirectXAlphaMode.Premultiplied);
-                _visual.Brush = _visual.Compositor.CreateSurfaceBrush(_surface);
-                ((CompositionSurfaceBrush)_visual.Brush).Stretch = CompositionStretch.Fill;
-            }
-            using (var ds = CanvasComposition.CreateDrawingSession(_surface))
-                Render(ds, bitmap, ExposureFor(sdrWhiteNits), 0.5f);
+            var blurred = Surface(ref _surface, _visual, Math.Max(1, size.Width / 2), Math.Max(1, size.Height / 2));
+            using (var ds = CanvasComposition.CreateDrawingSession(blurred))
+                Render(ds, bitmap, exposure, 0.5f, blur: true);
             Log.Info($"HDR backdrop: item {itemMs} ms, first frame {frameMs} ms, total {clock.ElapsedMilliseconds} ms (SDR white {sdrWhiteNits:0} nits)");
             _visual.IsVisible = true;
+            _sharpVisual.IsVisible = true;
             return true;
         }
         catch (Exception ex)
@@ -111,7 +127,7 @@ public sealed class HdrBackdrop : IDisposable
     static float ExposureFor(double sdrWhiteNits) => sdrWhiteNits > 80 ? (float)(80 / sdrWhiteNits) : 1f;
 
     /// <summary>Scale, level to SDR white, blur in linear light, encode to sRGB, draw.</summary>
-    static void Render(CanvasDrawingSession ds, ICanvasImage source, float exposure, float scale)
+    static void Render(CanvasDrawingSession ds, ICanvasImage source, float exposure, float scale, bool blur = true)
     {
         using var scaled = new ScaleEffect { Source = source, Scale = new Vector2(scale), InterpolationMode = CanvasImageInterpolation.Linear };
         using var levelled = new ColorMatrixEffect
@@ -120,10 +136,10 @@ public sealed class HdrBackdrop : IDisposable
             ColorMatrix = new Matrix5x4 { M11 = exposure, M22 = exposure, M33 = exposure, M44 = 1 },
             ClampOutput = false,
         };
-        using var blur = new GaussianBlurEffect { Source = levelled, BlurAmount = BlurAmount, BorderMode = EffectBorderMode.Hard, Optimization = EffectOptimization.Speed };
+        using var blurred = new GaussianBlurEffect { Source = levelled, BlurAmount = blur ? BlurAmount : 0, BorderMode = EffectBorderMode.Hard, Optimization = EffectOptimization.Speed };
         using var encoded = new ColorManagementEffect
         {
-            Source = blur,
+            Source = blur ? blurred : levelled,
             SourceColorProfile = new ColorManagementProfile(CanvasColorSpace.ScRgb),
             OutputColorProfile = new ColorManagementProfile(CanvasColorSpace.Srgb),
         };
@@ -151,14 +167,17 @@ public sealed class HdrBackdrop : IDisposable
     }
 
     /// <summary>Hides the HDR frame (the GDI fallback is showing instead).</summary>
-    public void Hide() => _visual.IsVisible = false;
+    public void Hide() { _visual.IsVisible = false; _sharpVisual.IsVisible = false; }
 
     /// <summary>Frees the GPU surface while the overlay is closed.</summary>
     public void Release()
     {
         _visual.Brush = null;
+        _sharpVisual.Brush = null;
         _surface?.Dispose();
         _surface = null;
+        _sharp?.Dispose();
+        _sharp = null;
     }
 
     // A capture item per monitor is reused across opens; it's dropped if the monitor goes away.

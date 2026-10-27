@@ -81,7 +81,19 @@ public sealed partial class ShellWindow : Window
         {
             if (e.Key == Windows.System.VirtualKey.Escape) { Back(); e.Handled = true; }
         };
-        HideStory.Completed += (_, _) => { if (!_visible) AppWindow.Hide(); };
+        // Windows also hands controller presses to the window as Gamepad* keys, and WinUI acts on them
+        // (moving focus, pressing buttons) on top of Nexus's own controller handling: every press
+        // counted twice, so left/right skipped an item. Nexus reads the pad itself; drop these.
+        Root.PreviewKeyDown += (_, e) => SwallowGamepadKey(e);
+        Root.PreviewKeyUp += (_, e) => SwallowGamepadKey(e);
+        HideStory.Completed += (_, _) =>
+        {
+            if (_visible) return;
+            // Cloak first so the window's last frame (the sharp game frame) is what disappears, never black.
+            Cloak(true);
+            AppWindow.Hide();
+            Cloak(false);
+        };
         // While you play, give memory the overlay isn't using back to Windows (it pages back in on open).
         _trim = DispatcherQueue.CreateTimer();
         _trim.Interval = TimeSpan.FromSeconds(20);
@@ -298,10 +310,15 @@ public sealed partial class ShellWindow : Window
         _shownAt = Environment.TickCount64;
         _app.Gamepad.Navigating = true;
 
+        // Shown cloaked (invisible but drawing) until the first frame with the captured screen is ready,
+        // so the very first thing you see is your own screen, then the blur fades in. No black frame.
+        Cloak(true);
         AppWindow.Show(true);
         Activate();
         Native.ForceForeground(Hwnd);
         ShowStory.Begin();
+        await NextFramesAsync(2);
+        Cloak(false);
         ElementSoundPlayer.Play(ElementSoundKind.Show);
         UpdateHeader();
         _clock.Start();
@@ -336,6 +353,39 @@ public sealed partial class ShellWindow : Window
     /// <summary>Exiting: losing focus now must not start the hide animation on a window being torn down.</summary>
     public void PrepareToQuit() => _quitting = true;
 
+    const int DWMWA_CLOAK = 13;
+
+    void Cloak(bool on)
+    {
+        int value = on ? 1 : 0;
+        Native.DwmSetWindowAttribute(Hwnd, DWMWA_CLOAK, ref value, sizeof(int));
+    }
+
+    /// <summary>Waits until XAML has drawn <paramref name="count"/> frames (at most ~100 ms).</summary>
+    static Task NextFramesAsync(int count)
+    {
+        var done = new TaskCompletionSource();
+        int seen = 0;
+        void OnRendering(object? s, object e)
+        {
+            if (++seen < count) return;
+            Microsoft.UI.Xaml.Media.CompositionTarget.Rendering -= OnRendering;
+            done.TrySetResult();
+        }
+        Microsoft.UI.Xaml.Media.CompositionTarget.Rendering += OnRendering;
+        return Task.WhenAny(done.Task, Task.Delay(100)).ContinueWith(_ => Microsoft.UI.Xaml.Media.CompositionTarget.Rendering -= OnRendering, TaskScheduler.FromCurrentSynchronizationContext());
+    }
+
+    bool _loggedGamepadKeys;
+
+    void SwallowGamepadKey(KeyRoutedEventArgs e)
+    {
+        int key = (int)e.Key;
+        if (key < (int)Windows.System.VirtualKey.GamepadA || key > (int)Windows.System.VirtualKey.GamepadRightThumbstickLeft) return;
+        e.Handled = true;
+        if (!_loggedGamepadKeys) { _loggedGamepadKeys = true; Log.Info($"ignoring WinUI's own gamepad keys (first: {e.Key})"); }
+    }
+
     void OnActivated(object sender, WindowActivatedEventArgs e)
     {
         if (_warming || _quitting) return;
@@ -360,7 +410,7 @@ public sealed partial class ShellWindow : Window
     /// </summary>
     RectInt32 _placed;
     Native.RECT _monitor;
-    WriteableBitmap? _backdrop;
+    WriteableBitmap? _backdrop, _sharpBitmap;
 
     HdrBackdrop? _hdr;
     int _hdrFailures;
@@ -379,7 +429,7 @@ public sealed partial class ShellWindow : Window
     /// <summary>Sets up the GPU device and effects ahead of time, so the first open doesn't pay for it.</summary>
     void PrepareBackdrop()
     {
-        try { if (HdrBackdrop.Supported) _hdr ??= new HdrBackdrop(Backdrop); }
+        try { if (HdrBackdrop.Supported) _hdr ??= new HdrBackdrop(SharpFrame, Backdrop); }
         catch (Exception ex) { Log.Warn($"HDR backdrop unavailable: {ex.Message}"); _hdrFailures = 3; }
     }
 
@@ -395,7 +445,7 @@ public sealed partial class ShellWindow : Window
         {
             try
             {
-                _hdr ??= new HdrBackdrop(Backdrop);
+                _hdr ??= new HdrBackdrop(SharpFrame, Backdrop);
                 hdr = await _hdr.CaptureAsync(Native.MonitorHandle(_previousForeground), SdrWhiteNits(), TimeSpan.FromMilliseconds(250));
             }
             catch (Exception ex) { Log.Warn($"HDR backdrop unavailable: {ex.Message}"); }
@@ -404,6 +454,7 @@ public sealed partial class ShellWindow : Window
         if (hdr)
         {
             BackdropImage.Visibility = Visibility.Collapsed;
+            SharpImage.Visibility = Visibility.Collapsed;
         }
         else
         {
@@ -416,9 +467,15 @@ public sealed partial class ShellWindow : Window
                 using (var stream = _backdrop.PixelBuffer.AsStream()) stream.Write(s.pixels, 0, s.pixels.Length);
                 _backdrop.Invalidate();
                 BackdropImage.Source = _backdrop;
+                if (_sharpBitmap is null || _sharpBitmap.PixelWidth != s.width || _sharpBitmap.PixelHeight != s.height)
+                    _sharpBitmap = new WriteableBitmap(s.width, s.height);
+                using (var stream = _sharpBitmap.PixelBuffer.AsStream()) stream.Write(s.sharp, 0, s.sharp.Length);
+                _sharpBitmap.Invalidate();
+                SharpImage.Source = _sharpBitmap;
             }
-            else BackdropImage.Source = null;
+            else { BackdropImage.Source = null; SharpImage.Source = null; }
             BackdropImage.Visibility = Visibility.Visible;
+            SharpImage.Visibility = Visibility.Visible;
         }
         if (clock.ElapsedMilliseconds > 40) Log.Info($"backdrop ({(hdr ? "HDR" : "GDI")}) took {clock.ElapsedMilliseconds} ms");
     }
