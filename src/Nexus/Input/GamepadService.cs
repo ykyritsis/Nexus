@@ -84,6 +84,31 @@ public sealed class GamepadService : IDisposable
     [StructLayout(LayoutKind.Sequential)] struct XInputVibration { public ushort Left, Right; }
     [DllImport("xinput1_4.dll")] static extern uint XInputSetState(uint user, ref XInputVibration v);
 
+    [StructLayout(LayoutKind.Sequential)]
+    struct XInputCapabilitiesEx
+    {
+        public byte Type, SubType;
+        public ushort Flags, Buttons;
+        public byte LeftTrigger, RightTrigger;
+        public short LX, LY, RX, RY;
+        public ushort LeftMotor, RightMotor;
+        public ushort VendorId, ProductId, ProductVersion, Reserved1;
+        public uint Reserved2;
+    }
+
+    [DllImport("xinput1_4.dll", EntryPoint = "#108")]
+    static extern uint XInputGetCapabilitiesEx(uint reserved, uint user, uint flags, out XInputCapabilitiesEx caps);
+
+    /// <summary>The USB product id of the controller in a slot (0 if empty or unknown).</summary>
+    public static ushort ProductId(int slot)
+    {
+        try { return XInputGetCapabilitiesEx(1, (uint)slot, 0, out var c) == 0 ? c.ProductId : (ushort)0; }
+        catch { return 0; }
+    }
+
+    /// <summary>ViGEm's virtual pads present as a wired Xbox 360 controller (VID 045E, PID 028E).</summary>
+    public const ushort VirtualPadProductId = 0x028E;
+
     /// <summary>The XInput slot of the input bridge's virtual pad (-1 for none); it is not read.</summary>
     public volatile int IgnoredSlot = -1;
 

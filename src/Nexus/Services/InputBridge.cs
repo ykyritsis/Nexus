@@ -186,19 +186,22 @@ public sealed class InputBridge : IDisposable
 
     /// <summary>The virtual pad's XInput slot (reported a moment after it connects).</summary>
     /// <summary>
-    /// The virtual pad's slot as Nexus sees it: the slot that wasn't there before it connected.
-    /// (ViGEm's own UserIndex counts only virtual-bus pads, so it can name the real controller's slot.)
+    /// The virtual pad's slot as Nexus sees it, by hardware id: it presents as a wired Xbox 360
+    /// controller (PID 028E), the real one doesn't. Order of appearance can't be trusted: the real
+    /// controller may reconnect at the same moment, and ViGEm's own index counts only virtual pads.
     /// </summary>
     int VirtualSlot(bool[] before)
     {
         for (int i = 0; i < 40; i++)
         {
             for (int slot = 0; slot < 4; slot++)
-                if (!before[slot] && GamepadService.TryRead(slot, out _)) return slot;
+                if (!before[slot] && GamepadService.ProductId(slot) == GamepadService.VirtualPadProductId) return slot;
             Thread.Sleep(25);
         }
-        try { if (_pad != null) { Log.Warn("input bridge: virtual pad slot not seen, using ViGEm's index"); return _pad.UserIndex; } } catch { }
-        return -1;
+        for (int slot = 0; slot < 4; slot++)
+            if (GamepadService.ProductId(slot) == GamepadService.VirtualPadProductId) return slot;
+        Log.Warn("input bridge: virtual pad not found by id");
+        try { return _pad?.UserIndex ?? -1; } catch { return -1; }
     }
 
     static bool[] ConnectedSlots()
@@ -266,7 +269,7 @@ public sealed class InputBridge : IDisposable
         if (src >= 0 && src != _app.Gamepad.IgnoredSlot && GamepadService.TryRead(src, out state)) return true;
         for (int slot = 0; slot < 4; slot++)
         {
-            if (slot == _app.Gamepad.IgnoredSlot) continue;
+            if (slot == _app.Gamepad.IgnoredSlot || GamepadService.ProductId(slot) == GamepadService.VirtualPadProductId) continue;
             if (GamepadService.TryRead(slot, out state)) { _source = slot; return true; }
         }
         state = default;
