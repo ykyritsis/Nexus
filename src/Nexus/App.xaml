@@ -20,7 +20,7 @@
             <SolidColorBrush x:Key="AccentBrush" Color="#FFFFFFFF" />
 
             <SolidColorBrush x:Key="GlassFill" Color="#17FFFFFF" />
-            <SolidColorBrush x:Key="GlassPanelFill" Color="#5C111318" />
+            <SolidColorBrush x:Key="GlassPanelFill" Color="#8C111318" />
             <SolidColorBrush x:Key="GlassRim" Color="#24FFFFFF" />
             <SolidColorBrush x:Key="LensFill" Color="#2EFFFFFF" />
             <SolidColorBrush x:Key="LensRim" Color="#33FFFFFF" />
@@ -122,7 +122,7 @@
             </Style>
 
             <!-- Small floating pieces (clock, tabs, hints) carry a little more shade: they sit on the game directly -->
-            <SolidColorBrush x:Key="GlassChipFill" Color="#6B111318" />
+            <SolidColorBrush x:Key="GlassChipFill" Color="#94111318" />
 
             <Style x:Key="GlassSurface" TargetType="Border">
                 <Setter Property="Background" Value="{StaticResource GlassFill}" />
