@@ -400,16 +400,18 @@ public sealed class InputBridge : IDisposable
         bool hadController = Enumerable.Range(0, 4).Any(slot => slot != _app.Gamepad.IgnoredSlot && GamepadService.TryRead(slot, out _));
         if (!hadController) return;
         if (!Run("schtasks.exe", $"/run /tn \"{RestartTask}\"")) { Log.Warn("input bridge: controller restart task missing"); return; }
+        // Bluetooth reconnects can take several seconds; the virtual pad must not be added before the
+        // real controller is back, or the real one would look like the newly appeared (virtual) slot.
         var clock = Stopwatch.StartNew();
-        bool gone = false;
-        while (clock.ElapsedMilliseconds < 6000)
+        bool gone = false, back = false;
+        while (clock.ElapsedMilliseconds < 12000)
         {
             bool present = Enumerable.Range(0, 4).Any(slot => GamepadService.TryRead(slot, out _));
             if (!present) gone = true;
-            else if (gone) break; // it went away and is back
+            else if (gone) { back = true; break; } // it went away and is back
             Thread.Sleep(50);
         }
-        Log.Info($"input bridge: controller restarted ({(gone ? "reconnected" : "no reconnect seen")} in {clock.ElapsedMilliseconds} ms)");
+        Log.Info($"input bridge: controller restart {(back ? "done" : gone ? "timed out (controller not back yet)" : "not seen")} after {clock.ElapsedMilliseconds} ms");
     }
 
     /// <summary>Switches hiding on or off. HidHide accepts this from a normal (unelevated) process.</summary>
