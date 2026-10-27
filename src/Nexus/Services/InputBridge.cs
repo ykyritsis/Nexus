@@ -437,6 +437,7 @@ public sealed class InputBridge : IDisposable
         _poll.Stop();
         if (!_active) return;
         // Quitting: undo synchronously so the controller is visible again before Nexus is gone.
+        _quietUntil = Environment.TickCount64 + 6000;
         _active = false;
         _thread?.Join(500);
         try { _pad?.Disconnect(); } catch { }
