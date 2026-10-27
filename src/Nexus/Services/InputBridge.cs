@@ -128,12 +128,15 @@ public sealed class InputBridge : IDisposable
             StartWatchdog();
             await Task.Delay(400);
 
+            // Which slots Nexus sees before the virtual pad exists: the real controller keeps its slot
+            // here (Nexus is allowed to see it), so the virtual pad is whichever slot appears next.
+            var before = ConnectedSlots();
             _client = new ViGEmClient();
             _pad = _client.CreateXbox360Controller();
             _pad.AutoSubmitReport = false;
             _pad.FeedbackReceived += OnFeedback;
             _pad.Connect();
-            int slot = await Task.Run(VirtualSlot);
+            int slot = await Task.Run(() => VirtualSlot(before));
             _app.Gamepad.IgnoredSlot = slot;
 
             _active = true;
@@ -167,14 +170,27 @@ public sealed class InputBridge : IDisposable
     }
 
     /// <summary>The virtual pad's XInput slot (reported a moment after it connects).</summary>
-    int VirtualSlot()
+    /// <summary>
+    /// The virtual pad's slot as Nexus sees it: the slot that wasn't there before it connected.
+    /// (ViGEm's own UserIndex counts only virtual-bus pads, so it can name the real controller's slot.)
+    /// </summary>
+    int VirtualSlot(bool[] before)
     {
-        for (int i = 0; i < 20; i++)
+        for (int i = 0; i < 40; i++)
         {
-            try { if (_pad != null) return _pad.UserIndex; } catch { }
+            for (int slot = 0; slot < 4; slot++)
+                if (!before[slot] && GamepadService.TryRead(slot, out _)) return slot;
             Thread.Sleep(25);
         }
+        try { if (_pad != null) { Log.Warn("input bridge: virtual pad slot not seen, using ViGEm's index"); return _pad.UserIndex; } } catch { }
         return -1;
+    }
+
+    static bool[] ConnectedSlots()
+    {
+        var seen = new bool[4];
+        for (int slot = 0; slot < 4; slot++) seen[slot] = GamepadService.TryRead(slot, out _);
+        return seen;
     }
 
     // ---------------- mirroring ----------------
