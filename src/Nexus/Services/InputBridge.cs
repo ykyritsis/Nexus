@@ -26,7 +26,8 @@ namespace Nexus.Services;
 public sealed class InputBridge : IDisposable
 {
 
-    const ushort GuideButton = 0x0400;
+    const ushort GuideButton = 0x0400, StartButton = 0x0010;
+    const int StartTapMs = 90, RecentStartMs = 5000;
 
     static readonly string[] CliPaths =
     {
@@ -217,8 +218,8 @@ public sealed class InputBridge : IDisposable
         try
         {
             uint lastPacket = uint.MaxValue;
-            bool lastLocked = false;
-            long lastSend = 0;
+            bool lastLocked = false, lastTapping = false;
+            long lastSend = 0, lastStartDown = -RecentStartMs, tapUntil = 0;
             var clock = Stopwatch.StartNew();
             while (_active)
             {
@@ -231,9 +232,22 @@ public sealed class InputBridge : IDisposable
                     Thread.Sleep(100); // no controller on: check ten times a second, not a thousand
                     continue;
                 }
-                else if (s.Packet != lastPacket || locked != lastLocked || clock.ElapsedMilliseconds - lastSend > 100)
+                long now = clock.ElapsedMilliseconds;
+                if (!locked && (s.Buttons & StartButton) != 0) lastStartDown = now;
+                // The guide just opened over a game: tap Start so the game pauses behind it, like a
+                // console. Not if Start was pressed lately (the game is likely paused already, and a
+                // second tap would unpause it).
+                if (locked && !lastLocked && ShouldPause(now - lastStartDown)) tapUntil = now + StartTapMs;
+                bool tapping = locked && now < tapUntil;
+                if (s.Packet != lastPacket || locked != lastLocked || tapping != lastTapping || now - lastSend > 100)
                 {
-                    if (locked) Neutral(pad);
+                    if (tapping)
+                    {
+                        pad.ResetReport();
+                        pad.SetButtonsFull(StartButton);
+                        pad.SubmitReport();
+                    }
+                    else if (locked) Neutral(pad);
                     else
                     {
                         pad.SetButtonsFull(s.Buttons); // Guide included, so Windows' own Guide features still work
@@ -247,13 +261,23 @@ public sealed class InputBridge : IDisposable
                     }
                     lastPacket = s.Packet;
                     lastLocked = locked;
-                    lastSend = clock.ElapsedMilliseconds;
+                    lastTapping = tapping;
+                    lastSend = now;
                 }
                 Thread.Sleep(1);
             }
         }
         catch (Exception ex) { Log.Error("input bridge mirroring", ex); }
         finally { timeEndPeriod(1); }
+    }
+
+    /// <summary>Pause on opening only over a full-screen game, with the setting on and no recent Start press.</summary>
+    bool ShouldPause(long sinceStart)
+    {
+        if (!_app.Settings.PauseOnGuide || sinceStart < RecentStartMs) return false;
+        bool game = Native.CoversMonitor(_app.Shell.PreviousForeground);
+        if (game) Log.Info("input bridge: tapped Start to pause the game");
+        return game;
     }
 
     /// <summary>The real controller: the first connected slot that isn't the virtual pad.</summary>

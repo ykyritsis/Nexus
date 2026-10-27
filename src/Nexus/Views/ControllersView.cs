@@ -31,7 +31,8 @@ public sealed class ControllersView : UserControl, INexusView
         var open = Pill("", "Xbox Accessories", () => { _app.Shell.Hide(restoreFocus: false); Launch.Open(@"shell:AppsFolder\Microsoft.XboxDevices_8wekyb3d8bbwe!App"); });
         var bt = Pill("", "Pair a controller", () => { _app.Shell.Hide(restoreFocus: false); Launch.Open("ms-settings:bluetooth"); });
         _bridgeButton = Pill("\uE72E", "", BridgeClick);
-        var pills = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, Children = { _bridgeButton, bt, open } };
+        _pauseButton = Pill("\uE769", "", PauseClick);
+        var pills = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, Children = { _bridgeButton, _pauseButton, bt, open } };
         var bridgeInfo = new StackPanel
         {
             VerticalAlignment = VerticalAlignment.Center, Spacing = 1,
@@ -84,7 +85,14 @@ public sealed class ControllersView : UserControl, INexusView
     // ---------------- input lock (InputBridge) ----------------
 
     readonly TextBlock _bridgeStatus = new() { Style = (Style)Res["CaptionTextBlockStyle"], Foreground = (Brush)Res["SubtleTextBrush"], TextTrimming = TextTrimming.CharacterEllipsis };
-    readonly Button _bridgeButton;
+    readonly Button _bridgeButton, _pauseButton;
+
+    void PauseClick()
+    {
+        _app.Settings.PauseOnGuide = !_app.Settings.PauseOnGuide;
+        _app.Settings.Save();
+        UpdateBridge();
+    }
 
     void UpdateBridge()
     {
@@ -93,6 +101,9 @@ public sealed class ControllersView : UserControl, INexusView
         string label = !bridge.Ready ? "Set up"
             : _app.Settings.LockGameInput ? "On" : "Off";
         ((TextBlock)((StackPanel)_bridgeButton.Content).Children[1]).Text = label;
+        // Pausing needs the lock (it taps Start on the virtual controller).
+        _pauseButton.Visibility = bridge.Ready && _app.Settings.LockGameInput ? Visibility.Visible : Visibility.Collapsed;
+        ((TextBlock)((StackPanel)_pauseButton.Content).Children[1]).Text = _app.Settings.PauseOnGuide ? "Pause game: On" : "Pause game: Off";
     }
 
     async void BridgeClick()

@@ -13,6 +13,8 @@ public sealed class AppSettings
     public bool ControllerToasts { get; set; } = true;
     /// <summary>While a game runs, games ignore the controller while the guide is open (InputBridge).</summary>
     public bool LockGameInput { get; set; } = true;
+    /// <summary>Opening the guide over a game taps Start so it pauses (InputBridge).</summary>
+    public bool PauseOnGuide { get; set; } = true;
 
     /// <summary>"auto" (OmniDash if installed, else the Xbox app), "xbox", "steam" or a path/URI.</summary>
     public string HomeTarget { get; set; } = "auto";
