@@ -137,6 +137,8 @@ public sealed class ControllersView : UserControl, INexusView
             {
                 var name = c.DisplayName;
                 if (string.IsNullOrWhiteSpace(name) || name.Contains("Xbox", StringComparison.OrdinalIgnoreCase)) continue;
+                // Microsoft pads (Xbox controllers, and the input lock's virtual one) are listed by slot above.
+                if (c.HardwareVendorId == 0x045E) continue;
                 string battery = "Battery unknown";
                 var report = c.TryGetBatteryReport();
                 if (report?.RemainingCapacityInMilliwattHours is int rem && report.FullChargeCapacityInMilliwattHours is int full && full > 0)

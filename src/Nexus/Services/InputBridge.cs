@@ -27,7 +27,7 @@ public sealed class InputBridge : IDisposable
 {
 
     const ushort GuideButton = 0x0400, StartButton = 0x0010;
-    const int StartTapMs = 90, RecentStartMs = 5000;
+    const int StartTapMs = 120, RecentStartMs = 5000, GuideHoldMs = 700;
 
     static readonly string[] CliPaths =
     {
@@ -219,7 +219,7 @@ public sealed class InputBridge : IDisposable
         {
             uint lastPacket = uint.MaxValue;
             bool lastLocked = false, lastTapping = false;
-            long lastSend = 0, lastStartDown = -RecentStartMs, tapUntil = 0;
+            long lastSend = 0, lastStartDown = -RecentStartMs, tapUntil = 0, guideDownAt = -1;
             var clock = Stopwatch.StartNew();
             while (_active)
             {
@@ -234,12 +234,21 @@ public sealed class InputBridge : IDisposable
                 }
                 long now = clock.ElapsedMilliseconds;
                 if (!locked && (s.Buttons & StartButton) != 0) lastStartDown = now;
-                // The guide just opened over a game: tap Start so the game pauses behind it, like a
-                // console. Not if Start was pressed lately (the game is likely paused already, and a
-                // second tap would unpause it).
-                if (locked && !lastLocked && ShouldPause(now - lastStartDown)) tapUntil = now + StartTapMs;
-                bool tapping = locked && now < tapUntil;
-                if (s.Packet != lastPacket || locked != lastLocked || tapping != lastTapping || now - lastSend > 100)
+                bool guide = (s.Buttons & GuideButton) != 0;
+                if (guide && guideDownAt < 0)
+                {
+                    guideDownAt = now;
+                    // Guide went down over a game: tap Start now, while the game still has focus (many
+                    // ignore menu input once the overlay takes it), so it pauses behind the guide. Not
+                    // if Start was pressed lately (likely paused already; a second tap would unpause).
+                    if (!locked && ShouldPause(now - lastStartDown)) tapUntil = now + StartTapMs;
+                }
+                else if (!guide) guideDownAt = -1;
+                bool tapping = now < tapUntil;
+                // Guide reaches Windows only when held (hold-Guide task view). A plain press is Nexus's:
+                // passing it on made Xbox mode open Game Bar.
+                bool passGuide = guide && now - guideDownAt >= GuideHoldMs;
+                if (s.Packet != lastPacket || locked != lastLocked || tapping != lastTapping || passGuide || now - lastSend > 100)
                 {
                     if (tapping)
                     {
@@ -250,7 +259,7 @@ public sealed class InputBridge : IDisposable
                     else if (locked) Neutral(pad);
                     else
                     {
-                        pad.SetButtonsFull(s.Buttons); // Guide included, so Windows' own Guide features still work
+                        pad.SetButtonsFull((ushort)((s.Buttons & ~GuideButton) | (passGuide ? GuideButton : 0)));
                         pad.SetSliderValue(Xbox360Slider.LeftTrigger, s.LeftTrigger);
                         pad.SetSliderValue(Xbox360Slider.RightTrigger, s.RightTrigger);
                         pad.SetAxisValue(Xbox360Axis.LeftThumbX, s.LX);
@@ -271,13 +280,28 @@ public sealed class InputBridge : IDisposable
         finally { timeEndPeriod(1); }
     }
 
-    /// <summary>Pause on opening only over a full-screen game, with the setting on and no recent Start press.</summary>
+    /// <summary>Pause only over a full-screen game in front, with the setting on and no recent Start press.</summary>
     bool ShouldPause(long sinceStart)
     {
         if (!_app.Settings.PauseOnGuide || sinceStart < RecentStartMs) return false;
-        bool game = Native.CoversMonitor(_app.Shell.PreviousForeground);
+        var front = Native.GetForegroundWindow();
+        bool game = Native.CoversMonitor(front) && !IsShell(front);
         if (game) Log.Info("input bridge: tapped Start to pause the game");
         return game;
+    }
+
+    // Full-screen windows that aren't games: Start there opens menus instead of pausing anything.
+    static readonly HashSet<string> Shells = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "XboxPcApp", "XboxPcAppFT", "explorer", "ApplicationFrameHost", "steamwebhelper", "steam", "Nexus",
+        "chrome", "msedge", "firefox", "brave", "vlc", "Spotify",
+    };
+
+    static bool IsShell(IntPtr window)
+    {
+        Native.GetWindowThreadProcessId(window, out uint pid);
+        var path = Native.ProcessPath(pid);
+        return path is null || Shells.Contains(Path.GetFileNameWithoutExtension(path));
     }
 
     /// <summary>The real controller: the first connected slot that isn't the virtual pad.</summary>
