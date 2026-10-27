@@ -332,7 +332,9 @@ public sealed partial class ShellWindow : Window
         ElementSoundPlayer.Play(ElementSoundKind.Show);
         UpdateHeader();
         _clock.Start();
-        if (ContentHost.Content is FrameworkElement current) ShowPageSoon(current);
+        if (!_app.Settings.OnboardingDone && ContentHost.Content is not OnboardingView)
+            OpenSubPage(new OnboardingView(_app)); // first use: set up the Guide button properly
+        else if (ContentHost.Content is FrameworkElement current) ShowPageSoon(current);
         MoveLens(animate: false);
         FocusContent();
         Log.Info($"shown (foreground ok: {Native.GetForegroundWindow() == Hwnd})");

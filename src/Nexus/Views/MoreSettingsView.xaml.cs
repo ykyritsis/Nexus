@@ -22,6 +22,7 @@ public sealed partial class MoreSettingsView : UserControl, INexusView
 
     public void OnShown()
     {
+        _app.Updater.CheckIfStale();
         Refresh();
         _app.Updater.StatusChanged += UpdateStatus;
         UpdateStatus();
@@ -32,7 +33,7 @@ public sealed partial class MoreSettingsView : UserControl, INexusView
     void UpdateStatus()
     {
         VersionText.Text = $"Version {Updater.Current.ToString(3)} · {_app.Updater.Status}";
-        UpdateButton.Content = _app.Updater.UpdateReady ? "Install update" : "Check for updates";
+        UpdateButton.Content = _app.Updater.UpdateReady ? "Install" : "Updates";
         UpdateButton.IsEnabled = !Updater.IsDevBuild;
     }
 
@@ -118,6 +119,8 @@ public sealed partial class MoreSettingsView : UserControl, INexusView
         _app.Settings.ControllerToasts = ToastSwitch.IsOn;
         _app.Settings.Save();
     }
+
+    void Setup_Click(object sender, RoutedEventArgs e) => _app.Shell.OpenSubPage(new OnboardingView(_app));
 
     void Log_Click(object sender, RoutedEventArgs e)
     {

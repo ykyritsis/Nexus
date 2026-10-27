@@ -15,6 +15,8 @@ public sealed class AppSettings
     public bool LockGameInput { get; set; } = true;
     /// <summary>Opening the guide over a game taps Start so it pauses (InputBridge).</summary>
     public bool PauseOnGuide { get; set; } = true;
+    /// <summary>The first-run setup page was finished (Done); it opens on first use until then.</summary>
+    public bool OnboardingDone { get; set; }
 
     /// <summary>"auto" (OmniDash if installed, else the Xbox app), "xbox", "steam" or a path/URI.</summary>
     public string HomeTarget { get; set; } = "auto";

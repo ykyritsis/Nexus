@@ -68,6 +68,9 @@ public sealed class ControllerToasts
     /// <summary>Preview (Nexus.exe --test-toast).</summary>
     public void Test() => Show(PadGlyph, "Controller connected", "Player 1 · Battery full");
 
+    /// <summary>Any other short notice in the same style (e.g. "Updated to 0.1.20").</summary>
+    public void Notify(string glyph, string title, string detail, int seconds = 5) => Show(glyph, title, detail, seconds);
+
     void Show(string glyph, string title, string detail, int seconds = 4)
     {
         if (_app.Shell.IsOpen) return; // the controller chip in the overlay already shows it

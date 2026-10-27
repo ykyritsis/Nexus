@@ -19,6 +19,11 @@ public static class Program
             try { Views.HdrBackdrop.SelfTest(); } catch (Exception ex) { Log.Error("selftest", ex); Log.Warn(ex.ToString()); }
             return 0;
         }
+        if (args.Contains("--selftest-update", StringComparer.OrdinalIgnoreCase))
+        {
+            try { Updater.SelfTestAsync().GetAwaiter().GetResult(); } catch (Exception ex) { Log.Error("selftest update", ex); }
+            return 0;
+        }
         if (!SingleInstance.TryBecomePrimary(args))
             return 0;
         // "--quit" with nothing running has nothing to close; don't start a copy just to open it.

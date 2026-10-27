@@ -65,6 +65,12 @@ public partial class App : Application
         });
         _toasts = new ControllerToasts(this, _ui);
         Updater = new Updater(this, _ui);
+        if (Updater.JustUpdated)
+            _ui.TryEnqueue(DispatcherQueuePriority.Low, async () =>
+            {
+                await Task.Delay(4000);
+                try { _toasts.Notify("\uE895", $"Nexus updated to {Updater.Current.ToString(3)}", "What's new is on GitHub"); } catch { }
+            });
         InputBridge = new InputBridge(this, _ui);
 
         _hooks = new WindowHooks(_shell.Hwnd);

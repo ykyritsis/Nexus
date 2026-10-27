@@ -49,12 +49,17 @@ public sealed class Updater
             if (File.Exists(AttemptFile) && Version.TryParse(File.ReadAllText(AttemptFile).Trim(), out var tried))
             {
                 if (Normal(Current) < Normal(tried)) { _failed = tried; Log.Warn($"update {tried} didn't install; not retrying it"); }
-                else File.Delete(AttemptFile);
+                else
+                {
+                    File.Delete(AttemptFile);
+                    JustUpdated = true; // App shows "Updated to …" once it's up
+                    Log.Info($"updated to {Current.ToString(3)}");
+                }
             }
         }
         catch { }
         _check = ui.CreateTimer();
-        _check.Interval = TimeSpan.FromMinutes(2); // first check soon after start, then every 6 h
+        _check.Interval = TimeSpan.FromSeconds(30); // first check soon after start, then every 6 h
         _check.Tick += async (_, _) => { _check.Interval = TimeSpan.FromHours(6); await CheckAsync(); };
         _install = ui.CreateTimer();
         _install.Interval = TimeSpan.FromMinutes(10);
@@ -70,10 +75,22 @@ public sealed class Updater
         return c;
     }
 
+    /// <summary>Set on the first start after an update installed.</summary>
+    public bool JustUpdated { get; }
+
+    DateTime _lastCheck = DateTime.MinValue;
+
+    /// <summary>More settings opened: check if the last check is over an hour old.</summary>
+    public void CheckIfStale()
+    {
+        if (DateTime.UtcNow - _lastCheck > TimeSpan.FromHours(1)) _ = CheckAsync();
+    }
+
     public async Task CheckAsync()
     {
         if (IsDevBuild || _busy || _ready != null) return;
         _busy = true;
+        _lastCheck = DateTime.UtcNow;
         try
         {
             SetStatus("Checking for updates…");
@@ -101,18 +118,16 @@ public sealed class Updater
                 SetStatus("Can't update: Nexus's folder isn't writable");
                 return;
             }
-            var url = release?["assets"]?.AsArray()
-                .FirstOrDefault(a => (string?)a?["name"] == AssetName)?["browser_download_url"]?.GetValue<string>();
+            var asset = release?["assets"]?.AsArray().FirstOrDefault(a => (string?)a?["name"] == AssetName);
+            var url = asset?["browser_download_url"]?.GetValue<string>();
+            long expected = asset?["size"]?.GetValue<long>() ?? 0;
             if (url is null) { SetStatus($"Version {latest.ToString(3)} has no download yet"); return; }
 
-            SetStatus($"Downloading version {latest.ToString(3)}…");
             var folder = Folder;
             var zip = Path.Combine(folder, $"Nexus-{latest}.zip");
             var target = Path.Combine(folder, latest.ToString());
             Directory.CreateDirectory(folder);
-            await using (var file = File.Create(zip))
-            await using (var stream = await Http.GetStreamAsync(url))
-                await stream.CopyToAsync(file);
+            await DownloadAsync(url, expected, zip, percent => SetStatus($"Downloading version {latest.ToString(3)} · {percent}%"));
             await Task.Run(() =>
             {
                 if (Directory.Exists(target)) Directory.Delete(target, recursive: true);
@@ -134,6 +149,52 @@ public sealed class Updater
             SetStatus("Couldn't check for updates");
         }
         finally { _busy = false; }
+    }
+
+    /// <summary>Streams the release zip to disk with progress (it's ~90 MB); a short download is an error.</summary>
+    static async Task DownloadAsync(string url, long expected, string zip, Action<int> progress)
+    {
+        using var download = await Http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
+        download.EnsureSuccessStatusCode();
+        long total = download.Content.Headers.ContentLength ?? expected;
+        await using var file = File.Create(zip);
+        await using var stream = await download.Content.ReadAsStreamAsync();
+        var buffer = new byte[1 << 16];
+        long got = 0;
+        int lastPercent = -1, read;
+        while ((read = await stream.ReadAsync(buffer)) > 0)
+        {
+            await file.WriteAsync(buffer.AsMemory(0, read));
+            got += read;
+            int percent = total > 0 ? (int)(got * 100 / total) : 0;
+            if (percent != lastPercent) { lastPercent = percent; progress(percent); }
+        }
+        if (expected > 0 && got != expected) throw new InvalidDataException($"download incomplete ({got} of {expected} bytes)");
+    }
+
+    /// <summary>
+    /// Nexus.exe --selftest-update: the real check and download, into a temp folder, then checks the
+    /// zip holds Nexus.exe and deletes it. Never installs; logs each step.
+    /// </summary>
+    public static async Task SelfTestAsync()
+    {
+        var clock = Stopwatch.StartNew();
+        var json = JsonNode.Parse(await Http.GetStringAsync(LatestUrl));
+        var tag = (string?)json?["tag_name"];
+        var asset = json?["assets"]?.AsArray().FirstOrDefault(a => (string?)a?["name"] == AssetName);
+        var url = asset?["browser_download_url"]?.GetValue<string>() ?? throw new InvalidDataException("no asset");
+        long expected = asset?["size"]?.GetValue<long>() ?? 0;
+        Log.Info($"SELFTEST update: latest {tag}, {expected / 1048576.0:0.0} MB, check took {clock.ElapsedMilliseconds} ms");
+        var zip = Path.Combine(Path.GetTempPath(), $"nexus-selftest-{Environment.ProcessId}.zip");
+        try
+        {
+            int logged = -10;
+            await DownloadAsync(url, expected, zip, p => { if (p >= logged + 25) { logged = p; Log.Info($"SELFTEST update: {p}%"); } });
+            using var archive = ZipFile.OpenRead(zip);
+            bool exe = archive.Entries.Any(e => e.FullName.Equals("Nexus.exe", StringComparison.OrdinalIgnoreCase));
+            Log.Info($"SELFTEST update: downloaded in {clock.ElapsedMilliseconds / 1000.0:0.0} s, {archive.Entries.Count} files, Nexus.exe {(exe ? "present" : "MISSING")}");
+        }
+        finally { File.Delete(zip); }
     }
 
     /// <summary>Installs a downloaded update. Automatically only between games with the overlay closed.</summary>

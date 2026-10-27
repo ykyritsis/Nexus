@@ -89,7 +89,8 @@
             </Border>
             <Border Style="{StaticResource GlassSurface}" Padding="20,16">
                 <StackPanel Orientation="Horizontal" Spacing="8">
-                    <Button x:Name="UpdateButton" Style="{StaticResource GlassButtonStyle}" Content="Check for updates" Click="Update_Click" />
+                    <Button x:Name="UpdateButton" Style="{StaticResource GlassButtonStyle}" Content="Updates" Click="Update_Click" />
+                    <Button Style="{StaticResource GlassButtonStyle}" Content="Run setup" Click="Setup_Click" />
                     <Button Style="{StaticResource GlassButtonStyle}" Content="Logs" Click="Log_Click" />
                     <Button Style="{StaticResource GlassButtonStyle}" Content="Quit Nexus" Click="Quit_Click" />
                 </StackPanel>
