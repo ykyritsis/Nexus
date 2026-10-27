@@ -40,8 +40,10 @@ public sealed class InputBridge : IDisposable
         "VALORANT-Win64-Shipping", "VALORANT", "League of Legends", "LeagueClient",
     };
 
-    public const string HidHideUrl = "https://github.com/nefarius/HidHide/releases";
-    public const string ViGEmBusUrl = "https://github.com/nefarius/ViGEmBus/releases";
+    // Pinned official releases (both MIT/BSD, signed by Nefarius Software Solutions; ViGEmBus is
+    // archived but final). The setup script refuses anything not signed by Nefarius.
+    const string HidHideSetupUrl = "https://github.com/nefarius/HidHide/releases/download/v1.5.230.0/HidHide_1.5.230_x64.exe";
+    const string VigemSetupUrl = "https://github.com/nefarius/ViGEmBus/releases/download/v1.22.0/ViGEmBus_1.22.0_x64_x86_arm64.exe";
 
     readonly App _app;
     readonly DispatcherQueue _ui;
@@ -248,30 +250,53 @@ public sealed class InputBridge : IDisposable
     // ---------------- HidHide ----------------
 
     /// <summary>
-    /// One-time setup (admin prompt): register Nexus with HidHide, mark the Xbox controller(s) to hide,
-    /// and create the on/off tasks. Returns true when it worked.
+    /// One-time setup, one admin prompt, everything in it: download the two drivers (pinned official
+    /// releases, refused unless signed by Nefarius), install them silently, register Nexus with
+    /// HidHide, mark the Xbox controller(s) to hide and create the on/off tasks.
     /// </summary>
     public async Task<bool> SetUpAsync()
     {
-        var cli = Cli;
-        if (cli is null || !DriversInstalled) return false;
-        var script = Path.Combine(Log.Folder, "hidhide-setup.ps1");
-        var result = Path.Combine(Log.Folder, "hidhide-setup.txt");
+        var script = Path.Combine(Log.Folder, "input-setup.ps1");
+        var result = Path.Combine(Log.Folder, "input-setup.txt");
+        var downloads = Path.Combine(Log.Folder, "drivers");
         Directory.CreateDirectory(Log.Folder);
         File.Delete(result);
         File.WriteAllText(script, $$"""
-            $ErrorActionPreference = 'Continue'
-            $cli = '{{cli}}'
-            & $cli --app-reg '{{Environment.ProcessPath}}'
-            $json = (& $cli --dev-gaming) | Out-String
-            $paths = [regex]::Matches($json, '"deviceInstancePath"\s*:\s*"([^"]+)"') |
-                ForEach-Object { $_.Groups[1].Value -replace '\\\\', '\' } |
-                Where-Object { $_ -match 'VID_045E' -and $_ -notmatch 'PID_028E' } | Select-Object -Unique
-            foreach ($p in $paths) { & $cli --dev-hide $p }
-            & $cli --cloak-off
-            schtasks /create /tn '{{OnTask}}' /tr "`"$cli`" --cloak-on" /sc once /st 00:00 /rl highest /f
-            schtasks /create /tn '{{OffTask}}' /tr "`"$cli`" --cloak-off" /sc once /st 00:00 /rl highest /f
-            Set-Content -Path '{{result}}' -Value ("devices=" + @($paths).Count)
+            $ErrorActionPreference = 'Stop'
+            $log = @()
+            function Install($name, $url, $file, $installed) {
+                if (& $installed) { return "$name already installed" }
+                New-Item -ItemType Directory -Force '{{downloads}}' | Out-Null
+                $path = Join-Path '{{downloads}}' $file
+                [Net.ServicePointManager]::SecurityProtocol = 'Tls12'
+                Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $path
+                $sig = Get-AuthenticodeSignature $path
+                if ($sig.Status -ne 'Valid' -or $sig.SignerCertificate.Subject -notmatch 'Nefarius Software Solutions') {
+                    Remove-Item $path -Force; throw "$name download isn't signed by Nefarius ($($sig.Status))"
+                }
+                $p = Start-Process $path -ArgumentList '/exenoui','/qn','/norestart' -Wait -PassThru
+                Remove-Item $path -Force -ErrorAction SilentlyContinue
+                "$name installed (exit $($p.ExitCode))"
+            }
+            try {
+                $log += Install 'ViGEmBus' '{{VigemSetupUrl}}' 'ViGEmBus_setup.exe' { Test-Path 'HKLM:\SYSTEM\CurrentControlSet\Services\ViGEmBus' }
+                $cliPaths = @('{{CliPaths[0]}}', '{{CliPaths[1]}}')
+                $log += Install 'HidHide' '{{HidHideSetupUrl}}' 'HidHide_setup.exe' { $cliPaths | Where-Object { Test-Path $_ } }
+                $cli = $cliPaths | Where-Object { Test-Path $_ } | Select-Object -First 1
+                if (-not $cli) { throw 'HidHide CLI not found after install' }
+                $ErrorActionPreference = 'Continue'
+                & $cli --app-reg '{{Environment.ProcessPath}}'
+                $json = (& $cli --dev-gaming) | Out-String
+                $paths = [regex]::Matches($json, '"deviceInstancePath"\s*:\s*"([^"]+)"') |
+                    ForEach-Object { $_.Groups[1].Value -replace '\\\\', '\' } |
+                    Where-Object { $_ -match 'VID_045E' -and $_ -notmatch 'PID_028E' } | Select-Object -Unique
+                foreach ($p in $paths) { & $cli --dev-hide $p }
+                & $cli --cloak-off
+                schtasks /create /tn '{{OnTask}}' /tr "`"$cli`" --cloak-on" /sc once /st 00:00 /rl highest /f | Out-Null
+                schtasks /create /tn '{{OffTask}}' /tr "`"$cli`" --cloak-off" /sc once /st 00:00 /rl highest /f | Out-Null
+                $log += "controllers marked: $(@($paths).Count)"
+            } catch { $log += "error: $($_.Exception.Message)" }
+            Set-Content -Path '{{result}}' -Value ($log -join '; ')
             """);
         try
         {
@@ -284,7 +309,7 @@ public sealed class InputBridge : IDisposable
         catch (Exception ex) { Log.Warn($"input bridge setup cancelled: {ex.Message}"); return false; }
 
         _setUp = await Task.Run(() => TaskExists(OnTask) && TaskExists(OffTask));
-        Log.Info($"input bridge setup: {(_setUp ? "done" : "failed")} ({(File.Exists(result) ? File.ReadAllText(result).Trim() : "no result")})");
+        Log.Info($"input bridge setup: {(_setUp && DriversInstalled ? "done" : "failed")} ({(File.Exists(result) ? File.ReadAllText(result).Trim() : "no result")})");
         if (_setUp) { _app.Settings.LockGameInput = true; _app.Settings.Save(); }
         UpdateStatus();
         return _setUp;
@@ -342,8 +367,7 @@ public sealed class InputBridge : IDisposable
 
     void UpdateStatus()
     {
-        Status = !DriversInstalled ? "Needs two free drivers: HidHide and ViGEmBus"
-            : !_setUp ? "Drivers found: one-time setup needed"
+        Status = !Ready ? "Not set up: one press installs and sets it up (admin prompt)"
             : !_app.Settings.LockGameInput ? "Off"
             : _active ? "On: games ignore the controller while the guide is open"
             : "On: starts when a game is running";

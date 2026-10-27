@@ -90,8 +90,7 @@ public sealed class ControllersView : UserControl, INexusView
     {
         var bridge = _app.InputBridge;
         _bridgeStatus.Text = bridge.Status;
-        string label = !InputBridge.DriversInstalled ? "Get drivers"
-            : !bridge.Ready ? "Set up"
+        string label = !bridge.Ready ? "Set up"
             : _app.Settings.LockGameInput ? "On" : "Off";
         ((TextBlock)((StackPanel)_bridgeButton.Content).Children[1]).Text = label;
     }
@@ -99,14 +98,7 @@ public sealed class ControllersView : UserControl, INexusView
     async void BridgeClick()
     {
         var bridge = _app.InputBridge;
-        if (!InputBridge.DriversInstalled)
-        {
-            // Both are free, signed drivers by Nefarius; installing needs an admin prompt, so it's the user's step.
-            _app.Shell.Hide(restoreFocus: false);
-            Launch.Open(InputBridge.HidHideUrl);
-            Launch.Open(InputBridge.ViGEmBusUrl);
-        }
-        else if (!bridge.Ready)
+        if (!bridge.Ready)
         {
             _app.Shell.Hide(restoreFocus: false); // the admin prompt needs the screen
             await bridge.SetUpAsync();
