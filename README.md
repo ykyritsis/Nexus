@@ -22,20 +22,20 @@
 
 ---
 
-## ✨ Highlights
+## Highlights
 
 | | |
 |---|---|
-| 🎮 **Guide opens it, instantly** | Pre-warmed at startup; a press only shows it (~30 ms). Holding Guide is left to Windows' task view. |
-| 🧊 **Live glass over your game** | The game keeps moving behind a soft blur: its own window is captured and re-blurred on the GPU, up to 60 fps. |
-| 🌗 **HDR-correct** | Captured in 16-bit scRGB and levelled to your SDR white, so the background matches the game's brightness without bloom. |
-| ⏸️ **Pauses the game, like a console** | Opening the guide taps Start for the game (unless you pressed Start in the last 5 s). |
-| 🔒 **Games ignore the controller in the guide** | A virtual-controller bridge (HidHide + ViGEmBus, set up with one press) means no game sees your input while the guide is open. Nothing is injected into games. |
-| 🎯 **Made for a controller** | A focus ring that glides between items, remembers where you were, slides tabs the way you pressed, and centres lists. |
-| 🪶 **Featherweight** | 0% CPU and a few MB of memory while closed; every timer and lookup runs only while its tab is open. |
-| 🔄 **Updates itself** | Checks GitHub 30 s after start and every 6 h, downloads with progress (~90 MB in seconds) and installs between games. |
+| <img src="docs/assets/icons/games.svg" width="22" align="top"> **Guide opens it, instantly** | Pre-warmed at startup; a press only shows it (~30 ms). Holding Guide is left to Windows' task view. |
+| <img src="docs/assets/icons/sparkle.svg" width="22" align="top"> **Live glass over your game** | The game keeps moving behind a soft blur: its own window is captured and re-blurred on the GPU, up to 60 fps. |
+| <img src="docs/assets/icons/brightness_high.svg" width="22" align="top"> **HDR-correct** | Captured in 16-bit scRGB and levelled to your SDR white, so the background matches the game's brightness without bloom. |
+| <img src="docs/assets/icons/pause.svg" width="22" align="top"> **Pauses the game, like a console** | Opening the guide taps Start for the game (unless you pressed Start in the last 5 s). |
+| <img src="docs/assets/icons/lock_closed.svg" width="22" align="top"> **Games ignore the controller in the guide** | A virtual-controller bridge (HidHide + ViGEmBus, set up with one press) means no game sees your input while the guide is open. Nothing is injected into games. |
+| <img src="docs/assets/icons/target.svg" width="22" align="top"> **Made for a controller** | A focus ring that glides between items, remembers where you were, slides tabs the way you pressed, and centres lists. |
+| <img src="docs/assets/icons/leaf_one.svg" width="22" align="top"> **Featherweight** | 0% CPU and a few MB of memory while closed; every timer and lookup runs only while its tab is open. |
+| <img src="docs/assets/icons/arrow_sync.svg" width="22" align="top"> **Updates itself** | Checks GitHub 30 s after start and every 6 h, downloads with progress (~90 MB in seconds) and installs between games. |
 
-## 🧭 What's inside
+## What's inside
 
 | Tab | |
 |---|---|
@@ -49,7 +49,7 @@
 In the corner: a **controller** chip (battery, rumble test, pairing, input lock) and a **power** menu.
 Controller pop-ups tell you when a pad connects, disconnects or runs low, without stealing focus.
 
-## 🚀 Get started
+## Get started
 
 1. Download **`Nexus-win-x64.zip`** from the [latest release](https://github.com/ykyritsis/Nexus/releases/latest) and extract it somewhere you can write to, e.g. `%LOCALAPPDATA%\Programs\Nexus`.
 2. Run `Nexus.exe` and press **Guide**. The first time, **Set up Nexus** walks you through everything, each item with its live state and a one-press fix:
@@ -59,7 +59,7 @@ Controller pop-ups tell you when a pad connects, disconnects or runs low, withou
    - Pause the game when the guide opens
 3. That's it. Come back to setup any time from **More settings → Run setup**.
 
-## 🕹️ Controls
+## Controls
 
 | Controller | | Keyboard |
 |---|---|---|
@@ -69,17 +69,18 @@ Controller pop-ups tell you when a pad connects, disconnects or runs low, withou
 | <kbd>B</kbd> | Back / close | Esc |
 | <kbd>LB</kbd> <kbd>RB</kbd> | Previous / next tab | |
 | <kbd>X</kbd> <kbd>Y</kbd> | Page actions (shown in the hint bar) | |
+| <kbd>LS</kbd> + <kbd>RS</kbd> (click both) | HDR-correct screenshot of the screen, overlay included | <kbd>F12</kbd> |
 
 Command line: `Nexus.exe --toggle`, `--background`, `--quit`, `--test-toast`.
 
-## 🛡️ Privacy and anti-cheat
+## Privacy and anti-cheat
 
 - **No accounts, no sign-ins, no telemetry.** Everything is read locally (Steam's own files, Windows APIs); network calls are game art lookups, Steam friends' public status and the update check.
 - **Nothing touches the game.** No injection, no hooks, no memory reads. Nexus is an always-on-top window; the background comes from Windows' official screen capture.
 - **The input lock** uses a virtual Xbox controller, the same way DS4Windows does. A few anti-cheats refuse virtual controllers (Valorant, League of Legends): Nexus pauses the lock while those run.
 - Exclusive fullscreen games can't be drawn over safely; use borderless.
 
-## 🧱 How it's built
+## How it's built
 
 - **C# / .NET 9, WinUI 3** (Windows App SDK 1.8, unpackaged, self-contained) with **Win2D** for the GPU blur and the **Inter** typeface.
 - **Guide button:** XInput's `XInputGetStateEx` (ordinal 100), polled on its own thread (`Input/GamepadService.cs`).
@@ -97,8 +98,9 @@ dotnet build src/Nexus/Nexus.csproj -c Release -p:Platform=x64
 
 Output: `src/Nexus/bin/x64/Release/net9.0-windows10.0.22621.0/win-x64/Nexus.exe`. Builds run from the source tree don't update themselves.
 
-## 🙏 Credits
+## Credits
 
 [HidHide](https://github.com/nefarius/HidHide) and [ViGEmBus](https://github.com/nefarius/ViGEmBus) by Nefarius Software Solutions ·
 [Inter](https://rsms.me/inter/) by Rasmus Andersson (OFL) · [Win2D](https://github.com/microsoft/Win2D) and the Windows App SDK by Microsoft ·
-[NAudio](https://github.com/naudio/NAudio) by Mark Heath.
+[NAudio](https://github.com/naudio/NAudio) by Mark Heath ·
+[Fluent UI System Icons](https://github.com/microsoft/fluentui-system-icons) by Microsoft (MIT).

@@ -98,6 +98,43 @@ public sealed class HdrBackdrop : IDisposable
 
     /// <summary>Captures and blurs the monitor. False if anything fails (the caller falls back to GDI).</summary>
     /// <param name="sdrWhiteNits">The display's SDR white level in HDR mode, or 0 for an SDR display.</param>
+    /// <summary>
+    /// A screenshot of the monitor as it looks right now (overlay included), through the same HDR
+    /// levelling as the background, so it isn't blown out on an HDR screen. Saved as a PNG.
+    /// </summary>
+    public static async Task<string?> SaveScreenshotAsync(IntPtr monitor, double sdrWhiteNits)
+    {
+        Direct3D11CaptureFramePool? pool = null;
+        GraphicsCaptureSession? session = null;
+        try
+        {
+            var device = CanvasDevice.GetSharedDevice();
+            var item = ItemForMonitor(monitor);
+            if (item is null) return null;
+            pool = Direct3D11CaptureFramePool.CreateFreeThreaded(device, DirectXPixelFormat.R16G16B16A16Float, 1, item.Size);
+            session = pool.CreateCaptureSession(item);
+            session.IsCursorCaptureEnabled = false;
+            NoBorder(session);
+            var arrived = new TaskCompletionSource<Direct3D11CaptureFrame>(TaskCreationOptions.RunContinuationsAsynchronously);
+            pool.FrameArrived += (p, _) => { var f = p.TryGetNextFrame(); if (f != null && !arrived.TrySetResult(f)) f.Dispose(); };
+            session.StartCapture();
+            if (await Task.WhenAny(arrived.Task, Task.Delay(1000)) != arrived.Task) return null;
+            using var frame = await arrived.Task;
+            using var bitmap = CanvasBitmap.CreateFromDirect3D11Surface(device, frame.Surface);
+            var size = frame.ContentSize;
+            using var target = new CanvasRenderTarget(device, size.Width, size.Height, 96, DirectXPixelFormat.B8G8R8A8UIntNormalized, CanvasAlphaMode.Premultiplied);
+            using (var ds = target.CreateDrawingSession()) Render(ds, bitmap, ExposureFor(sdrWhiteNits), 1f, blur: false);
+            var folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "Nexus Screenshots");
+            Directory.CreateDirectory(folder);
+            var path = Path.Combine(folder, $"Nexus {DateTime.Now:yyyy-MM-dd HH-mm-ss}.png");
+            await target.SaveAsync(path, CanvasBitmapFileFormat.Png);
+            Log.Info($"screenshot saved: {path} ({size.Width}x{size.Height})");
+            return path;
+        }
+        catch (Exception ex) { Log.Warn($"screenshot failed: {ex.Message}"); return null; }
+        finally { session?.Dispose(); pool?.Dispose(); }
+    }
+
     public async Task<bool> CaptureAsync(IntPtr monitor, double sdrWhiteNits, TimeSpan timeout)
     {
         var clock = System.Diagnostics.Stopwatch.StartNew();

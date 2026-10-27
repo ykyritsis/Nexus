@@ -69,11 +69,11 @@ public sealed class ControllerToasts
     public void Test() => Show(PadGlyph, "Controller connected", "Player 1 · Battery full");
 
     /// <summary>Any other short notice in the same style (e.g. "Updated to 0.1.20").</summary>
-    public void Notify(string glyph, string title, string detail, int seconds = 5) => Show(glyph, title, detail, seconds);
+    public void Notify(string glyph, string title, string detail, int seconds = 5, bool evenWhenOpen = false) => Show(glyph, title, detail, seconds, evenWhenOpen);
 
-    void Show(string glyph, string title, string detail, int seconds = 4)
+    void Show(string glyph, string title, string detail, int seconds = 4, bool evenWhenOpen = false)
     {
-        if (_app.Shell.IsOpen) return; // the controller chip in the overlay already shows it
+        if (_app.Shell.IsOpen && !evenWhenOpen) return; // the controller chip in the overlay already shows it
         Log.Info($"toast: {title} ({detail})");
         if (_toast is null)
         {

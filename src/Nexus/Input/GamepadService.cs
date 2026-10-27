@@ -44,7 +44,7 @@ public sealed class GamepadService : IDisposable
     const int RepeatDelayMs = 420, RepeatEveryMs = 130;
     const short StickNav = 19000;    // stick past ~58% counts as a d-pad direction for navigation
     const Pad NavButtons = Pad.Up | Pad.Down | Pad.Left | Pad.Right | Pad.A | Pad.B | Pad.X | Pad.Y |
-                           Pad.LB | Pad.RB | Pad.Start | Pad.Back;
+                           Pad.LB | Pad.RB | Pad.Start | Pad.Back | Pad.LeftStick | Pad.RightStick;
     const Pad Repeating = Pad.Up | Pad.Down | Pad.Left | Pad.Right;
 
     readonly Thread _thread;

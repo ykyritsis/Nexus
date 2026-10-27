@@ -86,6 +86,10 @@ public sealed partial class ShellWindow : Window
         // (moving focus, pressing buttons) on top of Nexus's own controller handling: every press
         // counted twice, so left/right skipped an item. Nexus reads the pad itself; drop these.
         Root.PreviewKeyDown += (_, e) => SwallowGamepadKey(e);
+        Root.KeyDown += async (_, e) =>
+        {
+            if (e.Key == Windows.System.VirtualKey.F12) { e.Handled = true; await ScreenshotAsync(); }
+        };
         Root.PreviewKeyUp += (_, e) => SwallowGamepadKey(e);
         HideStory.Completed += (_, _) =>
         {
@@ -387,6 +391,23 @@ public sealed partial class ShellWindow : Window
         }
         Microsoft.UI.Xaml.Media.CompositionTarget.Rendering += OnRendering;
         return Task.WhenAny(done.Task, Task.Delay(100)).ContinueWith(_ => Microsoft.UI.Xaml.Media.CompositionTarget.Rendering -= OnRendering, TaskScheduler.FromCurrentSynchronizationContext());
+    }
+
+    bool _shooting;
+
+    /// <summary>F12 or LS+RS while open: an HDR-correct screenshot of the screen, overlay included.</summary>
+    public async Task ScreenshotAsync()
+    {
+        if (_shooting || !_visible) return;
+        _shooting = true;
+        try
+        {
+            ElementSoundPlayer.Play(ElementSoundKind.Invoke);
+            var path = await HdrBackdrop.SaveScreenshotAsync(Native.MonitorHandle(Hwnd), SdrWhiteNits());
+            _app.Toasts.Notify(path != null ? "\uE722" : "\uE783", path != null ? "Screenshot saved" : "Screenshot failed",
+                path != null ? "Pictures \u203a Nexus Screenshots" : "See the log", seconds: 3, evenWhenOpen: true);
+        }
+        finally { _shooting = false; }
     }
 
     bool _loggedGamepadKeys;

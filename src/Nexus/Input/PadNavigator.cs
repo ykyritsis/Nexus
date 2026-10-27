@@ -61,6 +61,21 @@ public sealed class PadNavigator
             case Pad.RB: _shell.SwitchTab(+1); break;
             case Pad.X: _shell.CurrentView?.HandleX(focused); break;
             case Pad.Y: _shell.CurrentView?.HandleY(focused); break;
+            case Pad.LeftStick: case Pad.RightStick: StickClick(button); break;
+        }
+    }
+
+    long _leftStickAt = -10000, _rightStickAt = -10000;
+
+    /// <summary>Both sticks clicked within 0.4 s: screenshot (the controller's F12).</summary>
+    void StickClick(Pad button)
+    {
+        long now = Environment.TickCount64;
+        if (button == Pad.LeftStick) _leftStickAt = now; else _rightStickAt = now;
+        if (Math.Abs(_leftStickAt - _rightStickAt) < 400)
+        {
+            _leftStickAt = _rightStickAt = -10000;
+            _ = _shell.ScreenshotAsync();
         }
     }
 

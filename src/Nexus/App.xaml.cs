@@ -20,6 +20,7 @@ public partial class App : Application
     public ShellWindow Shell => _shell!;
     public Updater Updater { get; private set; } = null!;
     public InputBridge InputBridge { get; private set; } = null!;
+    public ControllerToasts Toasts => _toasts!;
 
     public App(string[] args)
     {
