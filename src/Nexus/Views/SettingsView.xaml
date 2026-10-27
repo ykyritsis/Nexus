@@ -11,13 +11,13 @@
             <ColumnDefinition Width="360" />
         </Grid.ColumnDefinitions>
 
-        <Grid x:Name="TileGrid" ColumnSpacing="12" RowSpacing="12" VerticalAlignment="Center">
+        <Grid x:Name="TileGrid" ColumnSpacing="10" RowSpacing="10" VerticalAlignment="Center">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition />
             </Grid.ColumnDefinitions>
             <Grid.RowDefinitions>
-                <RowDefinition Height="112" />
-                <RowDefinition Height="112" />
+                <RowDefinition Height="60" />
+                <RowDefinition Height="60" />
             </Grid.RowDefinitions>
             <Button x:Name="MicTile" Style="{StaticResource TileStyle}" Click="Mic_Click" />
             <Button x:Name="BluetoothTile" Grid.Column="1" Style="{StaticResource TileStyle}" Click="Bluetooth_Click" />

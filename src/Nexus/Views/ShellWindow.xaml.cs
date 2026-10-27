@@ -138,7 +138,8 @@ public sealed partial class ShellWindow : Window
         // A clean white ring, like current consoles: no coloured glow.
         _ringShape = c.CreateRoundedRectangleGeometry();
         var line = c.CreateSpriteShape(_ringShape);
-        line.StrokeBrush = c.CreateColorBrush(Windows.UI.Color.FromArgb(0xF2, 0xFF, 0xFF, 0xFF));
+        _ringBrush = c.CreateColorBrush(Windows.UI.Color.FromArgb(0xF2, 0xFF, 0xFF, 0xFF));
+        line.StrokeBrush = _ringBrush;
         line.StrokeThickness = RingStroke;
         _ring = c.CreateShapeVisual();
         _ring.Size = new Vector2(4000, 2000); // bigger than the panel; shapes draw where they are
@@ -152,6 +153,16 @@ public sealed partial class ShellWindow : Window
             try { OnFocusMoved(e.NewFocusedElement as Control); }
             catch (Exception ex) { Log.Error("focus ring", ex); HideRingQuietly(); }
         };
+    }
+
+    CompositionColorBrush? _ringBrush;
+
+    /// <summary>Adjusting a slider (after pressing A): the ring turns accent blue and A means "Done".</summary>
+    public void SetAdjusting(bool on)
+    {
+        if (_ringBrush != null)
+            _ringBrush.Color = on ? Windows.UI.Color.FromArgb(0xFF, 0x5A, 0xA9, 0xFF) : Windows.UI.Color.FromArgb(0xF2, 0xFF, 0xFF, 0xFF);
+        AHintText.Text = on ? "Done" : _ringTarget is { } t ? ActionFor(t) : "Select";
     }
 
     void OnFocusMoved(Control? target)
@@ -706,7 +717,11 @@ public sealed partial class ShellWindow : Window
         {
             if (e is ScrollViewer sv)
             {
-                if (sv.HorizontalScrollMode != ScrollMode.Disabled && sv.ScrollableWidth > 0)
+                if (sv.HorizontalScrollMode == ScrollMode.Disabled) return;
+                // Only our centring scroll: the built-in "just bring it into view" scroll on focus
+                // ran at the same time and the two fought (the Apps list rubber-banded).
+                sv.BringIntoViewOnFocusChange = false;
+                if (sv.ScrollableWidth > 0)
                     target.StartBringIntoView(new BringIntoViewOptions { AnimationDesired = true, HorizontalAlignmentRatio = 0.5 });
                 return;
             }

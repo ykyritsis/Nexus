@@ -26,8 +26,17 @@ public sealed class PadNavigator
 
     public PadNavigator(ShellWindow shell) => _shell = shell;
 
+    Slider? _adjusting;
+
+    void StopAdjusting()
+    {
+        _adjusting = null;
+        _shell.SetAdjusting(false);
+    }
+
     public void Reset()
     {
+        if (_adjusting != null) StopAdjusting();
         if (_openCombo != null) _openCombo.IsDropDownOpen = false;
         _openCombo = null;
     }
@@ -38,8 +47,12 @@ public sealed class PadNavigator
         if (_openCombo != null && HandleCombo(button)) return;
 
         var focused = FocusManager.GetFocusedElement(_shell.NavRoot.XamlRoot) as DependencyObject;
-        // A slider takes the pad axis it runs along; the other axis moves focus as usual.
-        var slider = focused as Slider;
+        // Sliders only move once A is pressed on them (then A or B is "Done"), so moving through a
+        // page never changes a value by accident. While adjusting, the slider takes its own axis.
+        if (_adjusting != null && !ReferenceEquals(focused, _adjusting)) StopAdjusting();
+        if (_adjusting != null && button is Pad.A or Pad.B) { ElementSoundPlayer.Play(ElementSoundKind.Invoke); StopAdjusting(); return; }
+        if (_adjusting != null && button is Pad.LB or Pad.RB) StopAdjusting();
+        var slider = _adjusting;
         bool vertical = slider?.Orientation == Orientation.Vertical;
         switch (button)
         {
@@ -126,6 +139,10 @@ public sealed class PadNavigator
         {
             case SelectorBarItem item when item.Tag is string tab:
                 _shell.SelectTab(tab, focus: true);
+                break;
+            case Slider s:
+                _adjusting = s;
+                _shell.SetAdjusting(true);
                 break;
             case ToggleSwitch ts:
                 ts.IsOn = !ts.IsOn;

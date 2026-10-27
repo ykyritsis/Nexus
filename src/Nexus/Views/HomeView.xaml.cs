@@ -22,7 +22,9 @@ namespace Nexus.Views;
 public sealed partial class HomeView : UserControl, INexusView
 {
     const int GameCount = 4;
-    const double HeroSize = 222, TileSize = 184;
+    // Sized so the first tile still fits its row when it grows 7% on focus (the row is ~220 px
+    // tall); bigger and the row clipped it, leaving a gap inside the focus ring above and below.
+    const double HeroSize = 204, TileSize = 172;
 
     readonly App _app;
     readonly ShellWindow _shell;
