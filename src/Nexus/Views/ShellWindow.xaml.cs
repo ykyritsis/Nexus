@@ -407,6 +407,32 @@ public sealed partial class ShellWindow : Window
         return Task.WhenAny(done.Task, Task.Delay(100)).ContinueWith(_ => Microsoft.UI.Xaml.Media.CompositionTarget.Rendering -= OnRendering, TaskScheduler.FromCurrentSynchronizationContext());
     }
 
+    bool _snapshotting;
+
+    /// <summary>
+    /// Nexus.exe --snapshot-tabs (a developer check): opens the overlay, steps through every tab and
+    /// saves a screenshot of each to Pictures\Nexus Screenshots, then closes. Focus moving elsewhere
+    /// doesn't close it meanwhile.
+    /// </summary>
+    public async Task SnapshotTabsAsync()
+    {
+        if (_snapshotting) return;
+        _snapshotting = true;
+        try
+        {
+            if (!_visible) await ShowAsync();
+            foreach (var tab in TabOrder)
+            {
+                SelectTab(tab, focus: true);
+                await Task.Delay(1500);
+                var path = await HdrBackdrop.SaveScreenshotAsync(Native.MonitorHandle(Hwnd), SdrWhiteNits());
+                Log.Info($"snapshot {tab}: {path}");
+            }
+            SelectTab("home", focus: false);
+        }
+        finally { _snapshotting = false; Hide(restoreFocus: false); }
+    }
+
     bool _shooting;
 
     /// <summary>F12 or LS+RS while open: an HDR-correct screenshot of the screen, overlay included.</summary>
@@ -440,7 +466,7 @@ public sealed partial class ShellWindow : Window
         if (e.WindowActivationState == WindowActivationState.Deactivated)
         {
             // Another app took focus: get out of the way (ignoring the flicker right after opening).
-            if (_visible && Environment.TickCount64 - _shownAt > 400) Hide(restoreFocus: false);
+            if (_visible && !_snapshotting && Environment.TickCount64 - _shownAt > 400) Hide(restoreFocus: false);
             return;
         }
         if (_pressedAt >= 0)

@@ -26,6 +26,9 @@ public static class SteamFriends
     static readonly Dictionary<string, (DateTime at, Presence presence, string status, string? game)> StatusCache = new();
     static readonly SemaphoreSlim Throttle = new(6);
 
+    /// <summary>Steam sends some names HTML-encoded ("Debauchery &amp;amp; Magic").</summary>
+    static string? Decode(string? s) => s is null ? null : System.Net.WebUtility.HtmlDecode(s);
+
     readonly record struct Extra(string? GameAppId, string? RecentGame, string? RecentAppId, string? RecentHours, string? GameArt, string? RecentArt);
     static readonly Dictionary<string, Extra> Extras = new();
 
@@ -108,7 +111,7 @@ public static class SteamFriends
             var state = root?.Element("onlineState")?.Value ?? "offline";
             var message = Regex.Replace(root?.Element("stateMessage")?.Value ?? "", "<[^>]+>", " ").Trim();
             Presence presence = state switch { "in-game" => Presence.InGame, "online" => Presence.Online, _ => Presence.Offline };
-            string? game = presence == Presence.InGame ? Regex.Replace(message, "^In-Game\\s*", "").Trim() : null;
+            string? game = presence == Presence.InGame ? Decode(Regex.Replace(message, "^In-Game\\s*", "").Trim()) : null;
             string status = presence switch
             {
                 Presence.InGame => string.IsNullOrEmpty(game) ? "In game" : game!,
@@ -121,7 +124,7 @@ public static class SteamFriends
             var inGame = root?.Element("inGameInfo");
             var extra = new Extra(
                 AppId(inGame?.Element("gameLink")?.Value),
-                recent?.Element("gameName")?.Value,
+                Decode(recent?.Element("gameName")?.Value),
                 AppId(recent?.Element("gameLink")?.Value),
                 recent?.Element("hoursPlayed")?.Value,
                 inGame?.Element("gameLogo")?.Value,      // Steam's exact art link (newer apps use hashed paths)

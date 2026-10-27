@@ -11,10 +11,10 @@
         </Grid.ColumnDefinitions>
 
         <!-- Left: output and input, each a device picker over a level pill with its mute button -->
-        <StackPanel Spacing="8" VerticalAlignment="Center">
+        <StackPanel x:Name="DeviceStack" Spacing="8" VerticalAlignment="Center">
             <ComboBox x:Name="OutputBox" Style="{StaticResource NexusComboStyle}" PlaceholderText="Output device"
                       DropDownClosed="Output_Closed" AutomationProperties.Name="Output device" />
-            <Border Style="{StaticResource GlassSurface}" CornerRadius="24" Padding="6,2,16,2">
+            <Border x:Name="OutPill" Style="{StaticResource GlassSurface}" CornerRadius="24" Padding="6,2,16,2">
                 <Grid ColumnSpacing="12">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="34" />

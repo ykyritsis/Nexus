@@ -88,7 +88,11 @@ public partial class App : Application
 
         SingleInstance.Listen(
             () => { Log.Info("toggle requested by another launch"); _ui.TryEnqueue(() => _shell.Toggle()); },
-            () => _ui.TryEnqueue(Quit));
+            () => _ui.TryEnqueue(Quit),
+            () => _ui.TryEnqueue(async () =>
+            {
+                try { await _shell.SnapshotTabsAsync(); } catch (Exception ex) { Log.Error("snapshot tabs", ex); Log.Warn(ex.ToString()); }
+            }));
 
         _shell.Warm();
         if (_args.Contains("--test-toast", StringComparer.OrdinalIgnoreCase))

@@ -12,9 +12,10 @@ public static class SingleInstance
     const string MutexName = @"Local\Nexus.Primary";
     const string ToggleName = @"Local\Nexus.Toggle";
     const string QuitName = @"Local\Nexus.Quit";
+    const string SnapshotName = @"Local\Nexus.Snapshot";
 
     static Mutex? _mutex;
-    static EventWaitHandle? _toggle, _quit;
+    static EventWaitHandle? _toggle, _quit, _snapshot;
 
     public static bool TryBecomePrimary(string[] args)
     {
@@ -23,27 +24,30 @@ public static class SingleInstance
         {
             _toggle = new EventWaitHandle(false, EventResetMode.AutoReset, ToggleName);
             _quit = new EventWaitHandle(false, EventResetMode.AutoReset, QuitName);
+            _snapshot = new EventWaitHandle(false, EventResetMode.AutoReset, SnapshotName);
             return true;
         }
 
         bool quit = args.Contains("--quit", StringComparer.OrdinalIgnoreCase);
         bool background = args.Contains("--background", StringComparer.OrdinalIgnoreCase);
-        if (!background && EventWaitHandle.TryOpenExisting(quit ? QuitName : ToggleName, out var ev))
+        bool snapshot = args.Contains("--snapshot-tabs", StringComparer.OrdinalIgnoreCase);
+        if (!background && EventWaitHandle.TryOpenExisting(quit ? QuitName : snapshot ? SnapshotName : ToggleName, out var ev))
             ev.Set();
         return false;
     }
 
     /// <summary>Calls back (on a worker thread) whenever another launch asks to toggle or quit.</summary>
-    public static void Listen(Action onToggle, Action onQuit)
+    public static void Listen(Action onToggle, Action onQuit, Action onSnapshot)
     {
-        if (_toggle is null || _quit is null) return;
+        if (_toggle is null || _quit is null || _snapshot is null) return;
         var t = new Thread(() =>
         {
-            var handles = new WaitHandle[] { _toggle, _quit };
+            var handles = new WaitHandle[] { _toggle, _quit, _snapshot };
             while (true)
             {
                 int i = WaitHandle.WaitAny(handles);
                 if (i == 0) onToggle();
+                else if (i == 2) onSnapshot();
                 else { onQuit(); return; }
             }
         }) { IsBackground = true, Name = "Nexus single instance" };

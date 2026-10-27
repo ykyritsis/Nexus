@@ -52,9 +52,7 @@ public sealed partial class AudioView : UserControl, INexusView
         _outMeter = MakeMeter(vertical: false, 300);
         _outMeter.Track.Margin = new Thickness(0, -2, 0, 4);
         _outMeter.Track.HorizontalAlignment = HorizontalAlignment.Center;
-        var pill = (Border)((Grid)OutSlider.Parent).Parent;
-        var stack = (StackPanel)pill.Parent;
-        stack.Children.Insert(stack.Children.IndexOf(pill) + 1, _outMeter.Track);
+        DeviceStack.Children.Insert(DeviceStack.Children.IndexOf(OutPill) + 1, _outMeter.Track);
     }
 
     public void OnShown()
