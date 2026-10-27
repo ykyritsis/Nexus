@@ -30,7 +30,23 @@ public sealed class ControllersView : UserControl, INexusView
         _app = app;
         var open = Pill("", "Xbox Accessories", () => { _app.Shell.Hide(restoreFocus: false); Launch.Open(@"shell:AppsFolder\Microsoft.XboxDevices_8wekyb3d8bbwe!App"); });
         var bt = Pill("", "Pair a controller", () => { _app.Shell.Hide(restoreFocus: false); Launch.Open("ms-settings:bluetooth"); });
-        var footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, HorizontalAlignment = HorizontalAlignment.Right, Children = { bt, open } };
+        _bridgeButton = Pill("\uE72E", "", BridgeClick);
+        var pills = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, Children = { _bridgeButton, bt, open } };
+        var bridgeInfo = new StackPanel
+        {
+            VerticalAlignment = VerticalAlignment.Center, Spacing = 1,
+            Children =
+            {
+                new TextBlock { Text = "Lock game input while the guide is open", Style = (Style)Res["BodyStrongTextBlockStyle"], FontSize = 13 },
+                _bridgeStatus,
+            },
+        };
+        var footer = new Grid { ColumnSpacing = 12 };
+        footer.ColumnDefinitions.Add(new ColumnDefinition());
+        footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        Grid.SetColumn(pills, 1);
+        footer.Children.Add(bridgeInfo);
+        footer.Children.Add(pills);
         var root = new Grid { RowSpacing = 12 };
         root.RowDefinitions.Add(new RowDefinition());
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -50,8 +66,54 @@ public sealed class ControllersView : UserControl, INexusView
         _poll.Tick += (_, _) => Refresh();
     }
 
-    public void OnShown() { _key = ""; Refresh(); _poll.Start(); }
-    public void OnHidden() => _poll.Stop();
+    public void OnShown()
+    {
+        _key = "";
+        Refresh();
+        _poll.Start();
+        _app.InputBridge.StatusChanged += UpdateBridge;
+        UpdateBridge();
+    }
+
+    public void OnHidden()
+    {
+        _poll.Stop();
+        _app.InputBridge.StatusChanged -= UpdateBridge;
+    }
+
+    // ---------------- input lock (InputBridge) ----------------
+
+    readonly TextBlock _bridgeStatus = new() { Style = (Style)Res["CaptionTextBlockStyle"], Foreground = (Brush)Res["SubtleTextBrush"], TextTrimming = TextTrimming.CharacterEllipsis };
+    readonly Button _bridgeButton;
+
+    void UpdateBridge()
+    {
+        var bridge = _app.InputBridge;
+        _bridgeStatus.Text = bridge.Status;
+        string label = !InputBridge.DriversInstalled ? "Get drivers"
+            : !bridge.Ready ? "Set up"
+            : _app.Settings.LockGameInput ? "On" : "Off";
+        ((TextBlock)((StackPanel)_bridgeButton.Content).Children[1]).Text = label;
+    }
+
+    async void BridgeClick()
+    {
+        var bridge = _app.InputBridge;
+        if (!InputBridge.DriversInstalled)
+        {
+            // Both are free, signed drivers by Nefarius; installing needs an admin prompt, so it's the user's step.
+            _app.Shell.Hide(restoreFocus: false);
+            Launch.Open(InputBridge.HidHideUrl);
+            Launch.Open(InputBridge.ViGEmBusUrl);
+        }
+        else if (!bridge.Ready)
+        {
+            _app.Shell.Hide(restoreFocus: false); // the admin prompt needs the screen
+            await bridge.SetUpAsync();
+        }
+        else await bridge.SetEnabledAsync(!_app.Settings.LockGameInput);
+        UpdateBridge();
+    }
 
     sealed record Pad(string Key, string Name, string Glyph, string Battery, int Slot);
 

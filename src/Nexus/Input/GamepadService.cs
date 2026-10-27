@@ -84,6 +84,32 @@ public sealed class GamepadService : IDisposable
     [StructLayout(LayoutKind.Sequential)] struct XInputVibration { public ushort Left, Right; }
     [DllImport("xinput1_4.dll")] static extern uint XInputSetState(uint user, ref XInputVibration v);
 
+    /// <summary>The XInput slot of the input bridge's virtual pad (-1 for none); it is not read.</summary>
+    public volatile int IgnoredSlot = -1;
+
+    /// <summary>A raw controller reading for the input bridge.</summary>
+    public readonly record struct RawState(uint Packet, ushort Buttons, byte LeftTrigger, byte RightTrigger, short LX, short LY, short RX, short RY);
+
+    /// <summary>Reads a slot directly (any thread), including the Guide button. False if nothing is there.</summary>
+    public static bool TryRead(int slot, out RawState state)
+    {
+        state = default;
+        try
+        {
+            if (XInputGetStateEx((uint)slot, out var s) != 0) return false;
+            state = new RawState(s.PacketNumber, s.Buttons, s.LeftTrigger, s.RightTrigger, s.LX, s.LY, s.RX, s.RY);
+            return true;
+        }
+        catch { return false; }
+    }
+
+    /// <summary>Sets a controller's motors (0-65535), e.g. rumble a game sent to the bridge's virtual pad.</summary>
+    public static void Vibrate(int slot, ushort left, ushort right)
+    {
+        var v = new XInputVibration { Left = left, Right = right };
+        try { XInputSetState((uint)slot, ref v); } catch { }
+    }
+
     /// <summary>Buzzes a controller for a moment (the Controllers page's "Test").</summary>
     public async Task RumbleAsync(int slot, int ms = 450)
     {
@@ -115,6 +141,12 @@ public sealed class GamepadService : IDisposable
             long now = _clock.ElapsedMilliseconds;
             for (int slot = 0; slot < 4; slot++)
             {
+                if (slot == IgnoredSlot)
+                {
+                    // The input bridge's virtual pad: Nexus must never read its own output.
+                    if (_connected[slot]) { _connected[slot] = false; _prev[slot] = Pad.None; }
+                    continue;
+                }
                 if (!_connected[slot] && now < _nextProbe[slot]) continue;
                 uint r;
                 XInputState s;

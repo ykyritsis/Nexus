@@ -19,6 +19,7 @@ public partial class App : Application
     public GamepadService Gamepad { get; }
     public ShellWindow Shell => _shell!;
     public Updater Updater { get; private set; } = null!;
+    public InputBridge InputBridge { get; private set; } = null!;
 
     public App(string[] args)
     {
@@ -64,6 +65,7 @@ public partial class App : Application
         });
         _toasts = new ControllerToasts(this, _ui);
         Updater = new Updater(this, _ui);
+        InputBridge = new InputBridge(this, _ui);
 
         _hooks = new WindowHooks(_shell.Hwnd);
         _hooks.HotkeyPressed += () => _shell.Toggle();
@@ -96,6 +98,7 @@ public partial class App : Application
         Log.Info("quitting");
         _shell?.PrepareToQuit();
         _hooks?.Dispose();
+        InputBridge?.Dispose();
         Gamepad.Dispose();
         Exit();
     }
