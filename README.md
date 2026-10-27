@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/assets/overlay.svg" alt="The Nexus overlay: tab bar, game tiles and a focus ring gliding between them" width="100%">
+  <img src="docs/screenshots/home.jpg" alt="Nexus Home over a blurred background: recent games as square tiles with their art, the tab bar, launchers and controller hints" width="100%">
 </p>
 
 ---
@@ -34,6 +34,21 @@
 | <img src="docs/assets/icons/target.svg" width="22" align="top"> **Made for a controller** | A focus ring that glides between items, remembers where you were, slides tabs the way you pressed, and centres lists. |
 | <img src="docs/assets/icons/leaf_one.svg" width="22" align="top"> **Featherweight** | 0% CPU and a few MB of memory while closed; every timer and lookup runs only while its tab is open. |
 | <img src="docs/assets/icons/arrow_sync.svg" width="22" align="top"> **Updates itself** | Checks GitHub 30 s after start and every 6 h, downloads with progress (~90 MB in seconds) and installs between games. |
+
+## Screenshots
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/settings.jpg" alt="Settings: Control Center tiles and sound"><br><sub><b>Settings</b>: Control Center tiles, volume, output device</sub></td>
+    <td width="50%"><img src="docs/screenshots/audio.jpg" alt="Audio: devices and a per-app volume mixer"><br><sub><b>Audio</b>: devices and a per-app mixer</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/widgets.jpg" alt="Widgets: performance, capture, display and gallery"><br><sub><b>Widgets</b>: performance, capture, display, gallery</sub></td>
+    <td width="50%"><img src="docs/screenshots/home.jpg" alt="Home: recent games"><br><sub><b>Home</b>: your recent games, launchers</sub></td>
+  </tr>
+</table>
+
+<sub>Captured with Nexus's own HDR-correct screenshot (click both sticks, or F12, while it's open).</sub>
 
 ## What's inside
 
