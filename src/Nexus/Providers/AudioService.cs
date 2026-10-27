@@ -56,6 +56,33 @@ public sealed class AudioService
         if (d != null) d.AudioEndpointVolume.Mute = muted;
     }
 
+    // ---------------- meters ----------------
+    MMDevice? _meterDevice;
+    int _meterAge;
+
+    /// <summary>Peak level (0-1) of the default output right now, for the Audio tab's meter.</summary>
+    public float OutputPeak()
+    {
+        try
+        {
+            // Re-fetched every ~2 s (the default device can change), not 20 times a second.
+            if (_meterDevice is null || ++_meterAge > 40) { _meterDevice?.Dispose(); _meterDevice = Default(DataFlow.Render); _meterAge = 0; }
+            return _meterDevice?.AudioMeterInformation.MasterPeakValue ?? 0;
+        }
+        catch { _meterDevice = null; return 0; }
+    }
+
+    /// <summary>Peak level (0-1) of one app's sessions right now.</summary>
+    public static float Peak(MixerApp app)
+    {
+        float peak = 0;
+        foreach (var s in app.Sessions)
+        {
+            try { peak = Math.Max(peak, s.AudioMeterInformation.MasterPeakValue); } catch { }
+        }
+        return peak;
+    }
+
     // ---------------- devices ----------------
     public List<AudioDevice> Devices(DataFlow flow)
     {

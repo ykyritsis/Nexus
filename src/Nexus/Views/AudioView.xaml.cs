@@ -17,6 +17,7 @@ public sealed partial class AudioView : UserControl, INexusView
 {
     sealed class Strip
     {
+        public Meter Meter = null!;
         public required MixerApp App;
         public required Border Root;
         public required Button MuteButton;
@@ -27,7 +28,8 @@ public sealed partial class AudioView : UserControl, INexusView
 
     readonly App _app;
     readonly AudioService _audio = new();
-    readonly DispatcherQueueTimer _poll;
+    readonly DispatcherQueueTimer _poll, _meters;
+    readonly Meter? _outMeter;
     readonly Dictionary<string, Strip> _strips = new();
     List<AudioDevice> _outputs = new(), _inputs = new();
     string _stripKey = "";
@@ -43,15 +45,96 @@ public sealed partial class AudioView : UserControl, INexusView
         _poll = DispatcherQueue.GetForCurrentThread().CreateTimer();
         _poll.Interval = TimeSpan.FromSeconds(1);
         _poll.Tick += (_, _) => Refresh(devices: false);
+        _meters = DispatcherQueue.GetForCurrentThread().CreateTimer();
+        _meters.Interval = TimeSpan.FromMilliseconds(50); // 20 fps, only while this tab is open
+        _meters.Tick += (_, _) => UpdateMeters();
+        // Output meter under the volume bar.
+        _outMeter = MakeMeter(vertical: false, 300);
+        _outMeter.Track.Margin = new Thickness(0, -2, 0, 4);
+        _outMeter.Track.HorizontalAlignment = HorizontalAlignment.Center;
+        var pill = (Border)((Grid)OutSlider.Parent).Parent;
+        var stack = (StackPanel)pill.Parent;
+        stack.Children.Insert(stack.Children.IndexOf(pill) + 1, _outMeter.Track);
     }
 
     public void OnShown()
     {
         Refresh(devices: true);
         _poll.Start();
+        _meters.Start();
     }
 
-    public void OnHidden() => _poll.Stop();
+    public void OnHidden() { _poll.Stop(); _meters.Stop(); }
+
+    // ---------------- level meters ----------------
+
+    /// <summary>A meter: a dim track with a fill that grows with the level (green, amber, red).</summary>
+    public sealed class Meter
+    {
+        public required Border Track;
+        public required Border Fill;
+        public required bool Vertical;
+        public required double Length;
+        public double Shown;
+    }
+
+    static readonly Brush MeterBrush = MakeMeterBrush();
+
+    static Brush MakeMeterBrush()
+    {
+        var b = new LinearGradientBrush { StartPoint = new(0, 1), EndPoint = new(0, 0) };
+        b.GradientStops.Add(new GradientStop { Color = Windows.UI.Color.FromArgb(255, 0x3D, 0xDC, 0x84), Offset = 0 });
+        b.GradientStops.Add(new GradientStop { Color = Windows.UI.Color.FromArgb(255, 0xF5, 0xC2, 0x42), Offset = 0.72 });
+        b.GradientStops.Add(new GradientStop { Color = Windows.UI.Color.FromArgb(255, 0xFF, 0x5A, 0x5F), Offset = 1 });
+        return b;
+    }
+
+    static Meter MakeMeter(bool vertical, double length)
+    {
+        var fill = new Border
+        {
+            CornerRadius = new CornerRadius(3), Background = vertical ? MeterBrush : HorizontalMeterBrush,
+            HorizontalAlignment = vertical ? HorizontalAlignment.Stretch : HorizontalAlignment.Left,
+            VerticalAlignment = vertical ? VerticalAlignment.Bottom : VerticalAlignment.Stretch,
+        };
+        if (vertical) fill.Height = 0; else fill.Width = 0;
+        var track = new Border
+        {
+            CornerRadius = new CornerRadius(3), Background = new SolidColorBrush(Windows.UI.Color.FromArgb(0x24, 0xFF, 0xFF, 0xFF)),
+            Width = vertical ? 6 : length, Height = vertical ? length : 4, Child = fill, VerticalAlignment = VerticalAlignment.Center,
+        };
+        return new Meter { Track = track, Fill = fill, Vertical = vertical, Length = length };
+    }
+
+    static readonly Brush HorizontalMeterBrush = MakeHorizontalMeterBrush();
+
+    static Brush MakeHorizontalMeterBrush()
+    {
+        var b = new LinearGradientBrush { StartPoint = new(0, 0), EndPoint = new(1, 0) };
+        b.GradientStops.Add(new GradientStop { Color = Windows.UI.Color.FromArgb(255, 0x3D, 0xDC, 0x84), Offset = 0 });
+        b.GradientStops.Add(new GradientStop { Color = Windows.UI.Color.FromArgb(255, 0xF5, 0xC2, 0x42), Offset = 0.72 });
+        b.GradientStops.Add(new GradientStop { Color = Windows.UI.Color.FromArgb(255, 0xFF, 0x5A, 0x5F), Offset = 1 });
+        return b;
+    }
+
+    /// <summary>Rises instantly, falls smoothly, like a mixing desk.</summary>
+    static void Show(Meter m, float peak)
+    {
+        m.Shown = Math.Max(peak, m.Shown * 0.82);
+        if (m.Shown < 0.004) m.Shown = 0;
+        double size = Math.Round(m.Shown * m.Length);
+        if (m.Vertical) m.Fill.Height = size; else m.Fill.Width = size;
+    }
+
+    void UpdateMeters()
+    {
+        try
+        {
+            if (_outMeter != null) Show(_outMeter, _audio.OutputPeak());
+            foreach (var strip in _strips.Values) Show(strip.Meter, AudioService.Peak(strip.App));
+        }
+        catch { }
+    }
 
     // ---------------- master ----------------
 
@@ -209,16 +292,19 @@ public sealed partial class AudioView : UserControl, INexusView
         };
         var star = new Button { Style = (Style)res["IconButtonStyle"], Width = 32, Height = 32 };
 
+        // A live level meter beside the slider.
+        var meter = MakeMeter(vertical: true, 104);
+        var fader = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, HorizontalAlignment = HorizontalAlignment.Center, Children = { slider, meter.Track } };
         var root = new Border
         {
-            Style = (Style)res["GlassSurface"], Width = 98, CornerRadius = new CornerRadius(22), Padding = new Thickness(8, 10, 8, 6),
+            Style = (Style)res["GlassSurface"], Width = 104, CornerRadius = new CornerRadius(22), Padding = new Thickness(8, 10, 8, 6),
             Child = new StackPanel
             {
                 Spacing = 5, HorizontalAlignment = HorizontalAlignment.Center,
-                Children = { mute, slider, value, name, star },
+                Children = { mute, fader, value, name, star },
             },
         };
-        var strip = new Strip { App = app, Root = root, MuteButton = mute, Slider = slider, Value = value, Star = star };
+        var strip = new Strip { App = app, Root = root, MuteButton = mute, Slider = slider, Value = value, Star = star, Meter = meter };
 
         slider.ValueChanged += (_, e) =>
         {
