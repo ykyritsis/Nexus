@@ -59,6 +59,10 @@ public sealed class InputBridge : IDisposable
     bool _setUp, _busy;
 
     public string Status { get; private set; } = "";
+
+    long _quietUntil;
+    /// <summary>True for a few seconds around switching on/off (controllers change slots then).</summary>
+    public bool Switching => Environment.TickCount64 < _quietUntil;
     public bool Active => _active;
     public event Action? StatusChanged;
 
@@ -118,6 +122,7 @@ public sealed class InputBridge : IDisposable
     {
         try
         {
+            _quietUntil = Environment.TickCount64 + 6000;
             // Hide the real controller first, so the virtual one takes its player slot.
             await Task.Run(() => Cloak(true));
             StartWatchdog();
@@ -146,6 +151,7 @@ public sealed class InputBridge : IDisposable
 
     async Task StopAsync(string why)
     {
+        _quietUntil = Environment.TickCount64 + 6000;
         _active = false;
         _thread?.Join(500);
         _thread = null;

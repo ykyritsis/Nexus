@@ -36,6 +36,8 @@ public sealed class ControllerToasts
         _warned[slot] = 4;
         // Controllers already on when Nexus starts aren't news.
         if (_app.Gamepad.Now < 5000 || !_app.Settings.ControllerToasts) return;
+        // The input bridge moving the real controller to another slot isn't news either.
+        if (_app.InputBridge?.Switching == true) return;
         if (!connected)
         {
             Show(PadGlyph, "Controller disconnected", $"Player {slot + 1}");
