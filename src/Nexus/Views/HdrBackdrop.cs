@@ -278,7 +278,9 @@ public sealed class HdrBackdrop : IDisposable
     /// <summary>Scale, level to SDR white, blur in linear light, encode to sRGB, draw.</summary>
     static void Render(CanvasDrawingSession ds, ICanvasImage source, float exposure, float scale, bool blur = true)
     {
-        using var scaled = new ScaleEffect { Source = source, Scale = new Vector2(scale), InterpolationMode = CanvasImageInterpolation.Linear };
+        // Hard borders: edge pixels are clamped instead of fading into transparent black, which left a
+        // dark sliver along the top and left edges when shrinking for the blur.
+        using var scaled = new ScaleEffect { Source = source, Scale = new Vector2(scale), InterpolationMode = CanvasImageInterpolation.Linear, BorderMode = EffectBorderMode.Hard };
         using var levelled = new ColorMatrixEffect
         {
             Source = scaled,

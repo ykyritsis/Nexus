@@ -74,6 +74,7 @@ public sealed partial class ShellWindow : Window
         int none = unchecked((int)0xFFFFFFFE), square = 1;
         Native.DwmSetWindowAttribute(Hwnd, 34 /*DWMWA_BORDER_COLOR*/, ref none, sizeof(int));
         Native.DwmSetWindowAttribute(Hwnd, Native.DWMWA_WINDOW_CORNER_PREFERENCE, ref square, sizeof(int));
+        Native.MakeFramelessPopup(Hwnd);
         AppWindow.Closing += (_, e) => { e.Cancel = true; Hide(); }; // Alt+F4 hides, Quit exits
 
         Activated += OnActivated;
@@ -118,7 +119,9 @@ public sealed partial class ShellWindow : Window
     // Instead of Windows' focus outline (which jumps, and whose corners don't follow ours), one ring
     // glides between controls on the compositor thread, with an even gap and matching rounded corners.
 
-    const float RingGap = 5, RingStroke = 2.5f;
+    // The ring hugs the control's own edge, drawn just inside it (centre of the stroke half a stroke in),
+    // so it can never spill onto neighbouring controls or past the panel.
+    const float RingStroke = 2.5f, RingGap = -RingStroke / 2;
     ShapeVisual? _ring;
     CompositionRoundedRectangleGeometry? _ringShape;
     ScrollViewer? _ringScroller;
@@ -181,7 +184,7 @@ public sealed partial class ShellWindow : Window
         double lift = target.Tag as string == "lift" ? 1.07 : 1;
         double w = r.Width * lift + RingGap * 2, h = r.Height * lift + RingGap * 2;
         double x = r.X - (r.Width * (lift - 1) / 2) - RingGap, y = r.Y - (r.Height * (lift - 1) / 2) - RingGap;
-        double radius = Math.Min(target.CornerRadius.TopLeft * lift + RingGap, Math.Min(w, h) / 2);
+        double radius = Math.Min(Math.Max(0, target.CornerRadius.TopLeft * lift + RingGap), Math.Min(w, h) / 2);
         // Composition rejects NaN, infinite or negative sizes with E_INVALIDARG; skip such layouts.
         if (!double.IsFinite(x) || !double.IsFinite(y) || !double.IsFinite(w) || !double.IsFinite(h) || w <= 0 || h <= 0) return;
         if (!double.IsFinite(radius) || radius < 0) radius = 0;

@@ -34,6 +34,27 @@ internal static class Native
     const int GWL_EXSTYLE = -20;
     public const long WS_EX_TOOLWINDOW = 0x80, WS_EX_NOACTIVATE = 0x08000000;
 
+    [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr hWnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
+
+    /// <summary>
+    /// A plain popup: no caption, sizing frame or edges at all. Removing the title bar through the
+    /// window presenter still leaves frame styles that Windows can draw as thin lines on some sides.
+    /// </summary>
+    public static void MakeFramelessPopup(IntPtr hWnd)
+    {
+        const int GWL_STYLE = -16;
+        const long WS_POPUP = 0x80000000, WS_CAPTION = 0xC00000, WS_THICKFRAME = 0x40000, WS_SYSMENU = 0x80000,
+            WS_MINIMIZEBOX = 0x20000, WS_MAXIMIZEBOX = 0x10000;
+        const long WS_EX_DLGMODALFRAME = 0x1, WS_EX_WINDOWEDGE = 0x100, WS_EX_CLIENTEDGE = 0x200, WS_EX_STATICEDGE = 0x20000;
+        long style = GetWindowLongPtr(hWnd, GWL_STYLE).ToInt64();
+        style = (style & ~(WS_CAPTION | WS_THICKFRAME | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX)) | WS_POPUP;
+        SetWindowLongPtr(hWnd, GWL_STYLE, (IntPtr)style);
+        long ex = GetWindowLongPtr(hWnd, GWL_EXSTYLE).ToInt64();
+        SetWindowLongPtr(hWnd, GWL_EXSTYLE, (IntPtr)(ex & ~(WS_EX_DLGMODALFRAME | WS_EX_WINDOWEDGE | WS_EX_CLIENTEDGE | WS_EX_STATICEDGE)));
+        const uint SWP_NOSIZE = 0x1, SWP_NOMOVE = 0x2, SWP_NOZORDER = 0x4, SWP_NOACTIVATE = 0x10, SWP_FRAMECHANGED = 0x20;
+        SetWindowPos(hWnd, IntPtr.Zero, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+    }
+
     public static void AddExStyle(IntPtr hWnd, long style) =>
         SetWindowLongPtr(hWnd, GWL_EXSTYLE, (IntPtr)(GetWindowLongPtr(hWnd, GWL_EXSTYLE).ToInt64() | style));
 
