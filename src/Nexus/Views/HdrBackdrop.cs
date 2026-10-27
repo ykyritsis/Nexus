@@ -21,7 +21,8 @@ namespace Nexus.Views;
 /// encoded to sRGB in an ordinary 8-bit surface. Windows shows 8-bit surfaces at the SDR white
 /// level, so the frame matches the game's brightness (a float surface was boosted a second time and
 /// came out blown out). Only highlights brighter than SDR white are clipped, which a blur hides.
-/// It costs nothing while you navigate.
+/// Over a game the blurred layer then stays live: the game's own window is captured (so the overlay
+/// is never in the picture) and each new frame is re-blurred, at most 60 times a second.
 /// </summary>
 public sealed class HdrBackdrop : IDisposable
 {
@@ -123,6 +124,129 @@ public sealed class HdrBackdrop : IDisposable
         }
     }
 
+    // ---------------- live ----------------
+
+    Direct3D11CaptureFramePool? _livePool;
+    GraphicsCaptureSession? _liveSession;
+    Direct3D11CaptureFrame? _lastFrame;
+    readonly object _liveGate = new();
+    float _liveExposure = 1;
+    long _lastDraw;
+    bool _drawQueued, _liveDrawing;
+    Microsoft.UI.Dispatching.DispatcherQueue? _ui;
+
+    /// <summary>Keeps the blurred layer moving with the game behind the overlay.</summary>
+    public bool StartLive(IntPtr window, double sdrWhiteNits)
+    {
+        StopLive();
+        try
+        {
+            var item = ItemForWindow(window);
+            if (item is null) return false;
+            _ui = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
+            _liveExposure = ExposureFor(sdrWhiteNits);
+            var pool = Direct3D11CaptureFramePool.CreateFreeThreaded(_device, DirectXPixelFormat.R16G16B16A16Float, 2, item.Size);
+            pool.FrameArrived += OnLiveFrame;
+            var session = pool.CreateCaptureSession(item);
+            session.IsCursorCaptureEnabled = false;
+            try { session.IsBorderRequired = false; } catch { }
+            lock (_liveGate) { _livePool = pool; _liveSession = session; _liveDrawing = true; }
+            session.StartCapture();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Log.Warn($"live background unavailable: {ex.Message}");
+            StopLive();
+            return false;
+        }
+    }
+
+    /// <summary>Capture thread: keep the newest frame, and ask the UI thread to draw it (at most 60 fps).</summary>
+    void OnLiveFrame(Direct3D11CaptureFramePool pool, object _)
+    {
+        var frame = pool.TryGetNextFrame();
+        if (frame is null) return;
+        lock (_liveGate)
+        {
+            if (!ReferenceEquals(pool, _livePool)) { frame.Dispose(); return; }
+            var previous = _lastFrame;
+            _lastFrame = frame;
+            previous?.Dispose();
+            if (!_liveDrawing || _drawQueued) return;
+            long now = System.Diagnostics.Stopwatch.GetTimestamp();
+            if (now - _lastDraw < System.Diagnostics.Stopwatch.Frequency / 60) return;
+            _drawQueued = true;
+        }
+        _ui?.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, DrawLive);
+    }
+
+    /// <summary>UI thread: re-blur the newest game frame into the blurred layer.</summary>
+    void DrawLive()
+    {
+        try
+        {
+            lock (_liveGate)
+            {
+                _drawQueued = false;
+                if (!_liveDrawing || _lastFrame is null || _surface is null) return;
+                _lastDraw = System.Diagnostics.Stopwatch.GetTimestamp();
+                DrawFrame(_lastFrame, _surface, blur: true);
+            }
+        }
+        catch (Exception ex) { Log.Warn($"live background frame: {ex.Message}"); StopLive(); }
+    }
+
+    void DrawFrame(Direct3D11CaptureFrame frame, CompositionDrawingSurface target, bool blur)
+    {
+        using var bitmap = CanvasBitmap.CreateFromDirect3D11Surface(_device, frame.Surface);
+        var size = frame.ContentSize;
+        float scale = Math.Min(target.SizeInt32.Width / (float)Math.Max(1, size.Width), target.SizeInt32.Height / (float)Math.Max(1, size.Height));
+        using var ds = CanvasComposition.CreateDrawingSession(target);
+        Render(ds, bitmap, _liveExposure, scale, blur);
+    }
+
+    /// <summary>
+    /// Closing: stop updating the blur and put the newest game frame in the sharp layer, so the blur
+    /// fades back to the game as it is now, not as it was when the overlay opened.
+    /// </summary>
+    public void FreezeForClose()
+    {
+        try
+        {
+            lock (_liveGate)
+            {
+                _liveDrawing = false;
+                if (_lastFrame != null && _sharp != null) DrawFrame(_lastFrame, _sharp, blur: false);
+            }
+        }
+        catch (Exception ex) { Log.Warn($"live background close frame: {ex.Message}"); }
+    }
+
+    public void StopLive()
+    {
+        lock (_liveGate)
+        {
+            _liveDrawing = false;
+            _liveSession?.Dispose();
+            _livePool?.Dispose();
+            _lastFrame?.Dispose();
+            _liveSession = null;
+            _livePool = null;
+            _lastFrame = null;
+        }
+    }
+
+    static GraphicsCaptureItem? ItemForWindow(IntPtr window)
+    {
+        var interop = GraphicsCaptureItem.As<IGraphicsCaptureItemInterop>();
+        var iid = CaptureItemIid;
+        IntPtr ptr = interop.CreateForWindow(window, ref iid);
+        if (ptr == IntPtr.Zero) return null;
+        try { return GraphicsCaptureItem.FromAbi(ptr); }
+        finally { Marshal.Release(ptr); }
+    }
+
     /// <summary>scRGB 1.0 is 80 nits; on an HDR display SDR white sits at sdrWhiteNits, so divide by that.</summary>
     static float ExposureFor(double sdrWhiteNits) => sdrWhiteNits > 80 ? (float)(80 / sdrWhiteNits) : 1f;
 
@@ -172,6 +296,7 @@ public sealed class HdrBackdrop : IDisposable
     /// <summary>Frees the GPU surface while the overlay is closed.</summary>
     public void Release()
     {
+        StopLive();
         _visual.Brush = null;
         _sharpVisual.Brush = null;
         _surface?.Dispose();

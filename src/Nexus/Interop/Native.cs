@@ -47,6 +47,14 @@ internal static class Native
         return sb.ToString();
     }
 
+    /// <summary>Fullscreen or borderless: the window covers its whole monitor.</summary>
+    public static bool CoversMonitor(IntPtr hWnd)
+    {
+        if (hWnd == IntPtr.Zero || !IsWindow(hWnd) || !IsWindowVisible(hWnd) || !GetWindowRect(hWnd, out var r)) return false;
+        var (m, _) = MonitorOf(hWnd);
+        return r.Left <= m.Left && r.Top <= m.Top && r.Right >= m.Right && r.Bottom >= m.Bottom;
+    }
+
     /// <summary>The monitor a window is on (or the primary one).</summary>
     public static IntPtr MonitorHandle(IntPtr hWnd) => hWnd != IntPtr.Zero
         ? MonitorFromWindow(hWnd, MONITOR_DEFAULTTONEAREST)

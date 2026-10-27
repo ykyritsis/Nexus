@@ -93,6 +93,7 @@ public sealed partial class ShellWindow : Window
             Cloak(true);
             AppWindow.Hide();
             Cloak(false);
+            _hdr?.StopLive();
         };
         // While you play, give memory the overlay isn't using back to Windows (it pages back in on open).
         _trim = DispatcherQueue.CreateTimer();
@@ -319,6 +320,12 @@ public sealed partial class ShellWindow : Window
         ShowStory.Begin();
         await NextFramesAsync(2);
         Cloak(false);
+        // Over a game, keep the blur moving with it (the game's window is captured, not the screen).
+        if (_hdrUsed && Native.CoversMonitor(_previousForeground) && _hdr != null)
+        {
+            bool live = _hdr.StartLive(_previousForeground, _sdrWhite);
+            Log.Info($"live background: {(live ? "on" : "unavailable")}");
+        }
         ElementSoundPlayer.Play(ElementSoundKind.Show);
         UpdateHeader();
         _clock.Start();
@@ -340,6 +347,7 @@ public sealed partial class ShellWindow : Window
         (ContentHost.Content as INexusView)?.OnHidden();
         ElementSoundPlayer.Play(ElementSoundKind.Hide);
         ShowStory.Stop();
+        _hdr?.FreezeForClose(); // fade back to the game as it is now
         HideStory.Begin(); // the window itself hides when this finishes
         _trim.Stop();
         _trim.Start();
@@ -414,6 +422,8 @@ public sealed partial class ShellWindow : Window
 
     HdrBackdrop? _hdr;
     int _hdrFailures;
+    bool _hdrUsed;
+    double _sdrWhite;
 
     /// <summary>The SDR white level of the overlay's display when it's in HDR mode, else 0.</summary>
     double SdrWhiteNits()
@@ -446,11 +456,13 @@ public sealed partial class ShellWindow : Window
             try
             {
                 _hdr ??= new HdrBackdrop(SharpFrame, Backdrop);
-                hdr = await _hdr.CaptureAsync(Native.MonitorHandle(_previousForeground), SdrWhiteNits(), TimeSpan.FromMilliseconds(250));
+                _sdrWhite = SdrWhiteNits();
+                hdr = await _hdr.CaptureAsync(Native.MonitorHandle(_previousForeground), _sdrWhite, TimeSpan.FromMilliseconds(250));
             }
             catch (Exception ex) { Log.Warn($"HDR backdrop unavailable: {ex.Message}"); }
             _hdrFailures = hdr ? 0 : _hdrFailures + 1;
         }
+        _hdrUsed = hdr;
         if (hdr)
         {
             BackdropImage.Visibility = Visibility.Collapsed;
