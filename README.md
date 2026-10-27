@@ -1,84 +1,104 @@
-# Nexus
+<p align="center">
+  <img src="docs/assets/banner.svg" alt="Nexus: press Guide, your PC answers like a console" width="100%">
+</p>
 
-A console-style overlay for Windows PCs, opened with the controller's **Guide button**. It covers
-everything the Xbox Game Bar's compact mode does, with a liquid-glass design: the game blurs behind a
-centred, horizontal panel.
+<p align="center">
+  <a href="https://github.com/ykyritsis/Nexus/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/ykyritsis/Nexus?style=for-the-badge&label=release&color=5aa9ff"></a>
+  <img alt="Windows 11" src="https://img.shields.io/badge/Windows%2011-x64-0078D4?style=for-the-badge&logo=windows11&logoColor=white">
+  <img alt="C# / .NET 9" src="https://img.shields.io/badge/C%23-.NET%209-512BD4?style=for-the-badge&logo=dotnet&logoColor=white">
+  <img alt="WinUI 3" src="https://img.shields.io/badge/WinUI%203-Windows%20App%20SDK%201.8-3a3d98?style=for-the-badge">
+  <img alt="No sign-ins" src="https://img.shields.io/badge/sign--ins-none-6fd36f?style=for-the-badge">
+</p>
 
-> Status: all six tabs work (see [docs/PLAN.md](docs/PLAN.md) for what's next).
+<p align="center">
+  <b>A console-style Guide button overlay for Windows.</b><br>
+  Everything Xbox Game Bar does, rebuilt to feel like a console: press <kbd>Guide</kbd> in any game,<br>
+  the game blurs behind a glass panel, and the controller drives everything.
+</p>
 
-## What it does today
+<p align="center">
+  <img src="docs/assets/overlay.svg" alt="The Nexus overlay: tab bar, game tiles and a focus ring gliding between them" width="100%">
+</p>
+
+---
+
+## ✨ Highlights
+
+| | |
+|---|---|
+| 🎮 **Guide opens it, instantly** | Pre-warmed at startup; a press only shows it (~30 ms). Holding Guide is left to Windows' task view. |
+| 🧊 **Live glass over your game** | The game keeps moving behind a soft blur: its own window is captured and re-blurred on the GPU, up to 60 fps. |
+| 🌗 **HDR-correct** | Captured in 16-bit scRGB and levelled to your SDR white, so the background matches the game's brightness without bloom. |
+| ⏸️ **Pauses the game, like a console** | Opening the guide taps Start for the game (unless you pressed Start in the last 5 s). |
+| 🔒 **Games ignore the controller in the guide** | A virtual-controller bridge (HidHide + ViGEmBus, set up with one press) means no game sees your input while the guide is open. Nothing is injected into games. |
+| 🎯 **Made for a controller** | A focus ring that glides between items, remembers where you were, slides tabs the way you pressed, and centres lists. |
+| 🪶 **Featherweight** | 0% CPU and a few MB of memory while closed; every timer and lookup runs only while its tab is open. |
+| 🔄 **Updates itself** | Checks GitHub 30 s after start and every 6 h, downloads with progress (~90 MB in seconds) and installs between games. |
+
+## 🧭 What's inside
 
 | Tab | |
 |---|---|
-| **Home** | While a game runs: **Now playing**, with its art, session and total playtime, Steam achievement progress and what's next, and Resume, Screenshot, Record last 30 s, Steam page and Quit game. Otherwise your last four games as square tiles: scenic art with the game's logo centred (Steam, falling back to Xbox/PlayStation/IGN art), Home and Library buttons, launchers |
-| **Settings** | Control Center tiles: mic, Bluetooth, airplane mode, Xbox mode, screenshot, network, touch keyboard, gamepad cursor, compact mode, Game Bar; volume and mic levels; More settings |
-| **Audio** | Output and input device, mute and level; per-app mixer as channel strips with favourites |
-| **Social** | Steam friends with online and in-game status (no API key needed); chat and profile |
-| **Apps** | Open apps with live thumbnails; switch, close, end a frozen app |
-| **Widgets** | Performance (CPU, GPU, RAM, VRAM), Capture (screenshot, last 30 s, record), Display (borderless sizes and placement, Lossless Scaling, HDR), Gallery, Resources |
+| **Home** | While a game runs: **Now playing** with its art, session and total playtime, Steam achievement progress, and Resume / Screenshot / Record last 30 s / Steam page / Quit game. Otherwise your last four games as square tiles (scenic art with the logo centred; Steam, Xbox, PlayStation and IGN art) plus launchers. |
+| **Settings** | Control Center tiles: mic, Bluetooth, airplane mode, Xbox mode, screenshot, network, touch keyboard, gamepad cursor, compact mode, Game Bar; volume and mic; More settings (overlay size, startup, controller pop-ups, updates, setup). |
+| **Audio** | Output and input device, levels and mute; a per-app mixer as channel strips with favourites. |
+| **Social** | Steam friends with online and in-game status (no API key, no sign-in); chat and profile. |
+| **Apps** | Open apps with live thumbnails; switch, close (X), end a frozen app (Y twice). |
+| **Widgets** | Performance (CPU, GPU, RAM, VRAM), Capture, Display (borderless sizes, Lossless Scaling, HDR), Gallery, Resources. |
 
-In the corner: a controller chip (connected pads, battery, rumble test, pairing) and a power menu (sleep, restart, shut down, lock, sign out, Xbox mode).
+In the corner: a **controller** chip (battery, rumble test, pairing, input lock) and a **power** menu.
+Controller pop-ups tell you when a pad connects, disconnects or runs low, without stealing focus.
 
-A soft glow behind the panel takes its colour from the focused game.
+## 🚀 Get started
 
-**Lightweight:** idle in the background it uses 0% CPU and about 13 MB of working memory; every
-widget, timer and network lookup runs only while its tab is open.
+1. Download **`Nexus-win-x64.zip`** from the [latest release](https://github.com/ykyritsis/Nexus/releases/latest) and extract it somewhere you can write to, e.g. `%LOCALAPPDATA%\Programs\Nexus`.
+2. Run `Nexus.exe` and press **Guide**. The first time, **Set up Nexus** walks you through everything, each item with its live state and a one-press fix:
+   - Windows Game Bar and Steam let go of the Guide button
+   - Games ignore the controller while the guide is open (installs two small signed drivers, one admin prompt)
+   - Start with Windows
+   - Pause the game when the guide opens
+3. That's it. Come back to setup any time from **More settings → Run setup**.
 
-**Controller:** Guide opens and closes it (holding Guide is left to Windows task view). D-pad or left stick moves,
-A selects, B goes back, LB/RB switch tabs. X and Y do what the hint bar says (Now Playing: screenshot
-and force quit; Apps: close and end task; mixer: favourite).
-**Keyboard:** Win + Shift + G, Esc to go back. **Command line:** `Nexus.exe --toggle`, `--background`,
-`--quit`, `--test-toast` (preview the controller pop-up).
+## 🕹️ Controls
 
-**Controller pop-ups:** a small glass toast at the top of the screen when a controller connects,
-disconnects or runs low. It never takes focus from the game (More settings to turn off).
+| Controller | | Keyboard |
+|---|---|---|
+| <kbd>Guide</kbd> | Open / close | <kbd>Win</kbd> + <kbd>Shift</kbd> + <kbd>G</kbd> |
+| D-pad / left stick | Move | Tab |
+| <kbd>A</kbd> | Select (the hint bar says what it does: Play, Toggle, …) | Enter / Space |
+| <kbd>B</kbd> | Back / close | Esc |
+| <kbd>LB</kbd> <kbd>RB</kbd> | Previous / next tab | |
+| <kbd>X</kbd> <kbd>Y</kbd> | Page actions (shown in the hint bar) | |
 
-## Install and updates
+Command line: `Nexus.exe --toggle`, `--background`, `--quit`, `--test-toast`.
 
-Every push to `main` that changes the app is built by GitHub Actions and published as a release
-(`Nexus-win-x64.zip`). Extract it somewhere you can write to, such as `%LOCALAPPDATA%\Programs\Nexus`,
-and run `Nexus.exe`. Nexus then checks for a newer release a couple of minutes after starting and every
-six hours, downloads it in the background, and installs it only between games with the overlay
-closed (or straight away from More settings → Install update). Builds run from the source tree
-don't update themselves.
+## 🛡️ Privacy and anti-cheat
 
-The updater reads releases without signing in, so the repository has to be public for it to see them.
+- **No accounts, no sign-ins, no telemetry.** Everything is read locally (Steam's own files, Windows APIs); network calls are game art lookups, Steam friends' public status and the update check.
+- **Nothing touches the game.** No injection, no hooks, no memory reads. Nexus is an always-on-top window; the background comes from Windows' official screen capture.
+- **The input lock** uses a virtual Xbox controller, the same way DS4Windows does. A few anti-cheats refuse virtual controllers (Valorant, League of Legends): Nexus pauses the lock while those run.
+- Exclusive fullscreen games can't be drawn over safely; use borderless.
 
-## Setup
+## 🧱 How it's built
 
-1. Turn off Windows' own Guide binding: Settings → Gaming → Game Bar → "Allow your controller to
-   open Game Bar" (More settings in Nexus has a shortcut to that page). Changing the registry value
-   alone isn't enough while Game Bar is running.
-2. If Steam opens on Guide too, turn off "Guide button focuses Steam" in Steam's controller settings.
-3. Optional: More settings → Start with Windows.
+- **C# / .NET 9, WinUI 3** (Windows App SDK 1.8, unpackaged, self-contained) with **Win2D** for the GPU blur and the **Inter** typeface.
+- **Guide button:** XInput's `XInputGetStateEx` (ordinal 100), polled on its own thread (`Input/GamepadService.cs`).
+- **Glass:** a transparent window; a still frame then a live, GPU-blurred capture of the game sits behind a smoked-glass panel (`Views/HdrBackdrop.cs`), with a compositor-driven focus ring (`Views/ShellWindow.xaml.cs`).
+- **Input lock:** `Services/InputBridge.cs` hides the real pad with HidHide and mirrors it to a ViGEmBus Xbox 360 pad at ~1 kHz, idling it while the guide is open.
+- **Updates:** GitHub Actions builds every push to `main` into a release; `Services/Updater.cs` picks it up.
 
-## Build
+### Build it
 
-Needs the .NET 9 SDK. The Windows App SDK comes from NuGet and is bundled into the output
-(self-contained), so nothing else needs installing.
+Needs the .NET 9 SDK; the Windows App SDK comes from NuGet.
 
 ```
 dotnet build src/Nexus/Nexus.csproj -c Release -p:Platform=x64
 ```
 
-Output: `src/Nexus/bin/x64/Release/net9.0-windows10.0.22621.0/win-x64/Nexus.exe`.
-The icon is drawn by `tools/make-icon.py` (needs Pillow).
+Output: `src/Nexus/bin/x64/Release/net9.0-windows10.0.22621.0/win-x64/Nexus.exe`. Builds run from the source tree don't update themselves.
 
-## How it works
+## 🙏 Credits
 
-- **Guide button:** XInput's hidden `XInputGetStateEx` (xinput1_4.dll ordinal 100) reports the Guide
-  button. A background thread polls at about 125 Hz while a controller is connected
-  (`Input/GamepadService.cs`).
-- **Fast open:** the overlay window is created and laid out at startup, then hidden, so a Guide press
-  only shows it. Open time is logged to `%LOCALAPPDATA%\Nexus\nexus.log`.
-- **Glass:** the window covers the monitor and uses Windows' acrylic blur as its backdrop
-  (`Views/GlassBackdrop.cs`). Panels layer a light gradient fill and a gradient specular rim on top
-  (`App.xaml`).
-- **Controller navigation:** WinUI desktop apps don't get gamepad focus navigation on their own, so
-  `Input/PadNavigator.cs` maps the pad to focus moves and control actions.
-
-## Anti-cheat
-
-Nexus never injects into games, hooks rendering or reads game memory. It only opens game processes with
-the most limited access, to read an exe path for the icon. It's an always-on-top window like any other.
-Exclusive fullscreen games can't be drawn over safely; switch those to borderless.
+[HidHide](https://github.com/nefarius/HidHide) and [ViGEmBus](https://github.com/nefarius/ViGEmBus) by Nefarius Software Solutions ·
+[Inter](https://rsms.me/inter/) by Rasmus Andersson (OFL) · [Win2D](https://github.com/microsoft/Win2D) and the Windows App SDK by Microsoft ·
+[NAudio](https://github.com/naudio/NAudio) by Mark Heath.

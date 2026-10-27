@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="420" viewBox="0 0 1280 420" role="img" aria-label="Nexus: a console-style Guide button overlay for Windows">
+  <defs>
+    <!-- "the game", blurred behind the glass -->
+    <linearGradient id="sky" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0d1b2a"/>
+      <stop offset="0.45" stop-color="#1b2f4b"/>
+      <stop offset="1" stop-color="#3a1d3f"/>
+    </linearGradient>
+    <radialGradient id="sun" cx="0.78" cy="0.28" r="0.5">
+      <stop offset="0" stop-color="#ff9a5a" stop-opacity="0.85"/>
+      <stop offset="1" stop-color="#ff9a5a" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.55" r="0.5">
+      <stop offset="0" stop-color="#6fb6ff" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#6fb6ff" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="blur" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="22"/></filter>
+    <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#111318" stop-opacity="0.55"/>
+    </linearGradient>
+    <style>
+      .breathe { animation: breathe 6s ease-in-out infinite; transform-origin: 640px 230px; }
+      @keyframes breathe { 0%,100% { opacity: .55; transform: scale(1); } 50% { opacity: .95; transform: scale(1.06); } }
+      .drift { animation: drift 14s ease-in-out infinite alternate; }
+      @keyframes drift { from { transform: translateX(-30px); } to { transform: translateX(30px); } }
+      .title { font: 700 84px 'Inter', 'Segoe UI Variable Display', 'Segoe UI', sans-serif; letter-spacing: -2px; fill: #fff; }
+      .sub { font: 500 24px 'Inter', 'Segoe UI', sans-serif; fill: #ffffffcc; }
+      .chip { font: 600 15px 'Inter', 'Segoe UI', sans-serif; fill: #ffffffd9; }
+      .rise { animation: rise .9s cubic-bezier(.2,.9,.3,1) both; }
+      .rise2 { animation: rise .9s .15s cubic-bezier(.2,.9,.3,1) both; }
+      .rise3 { animation: rise .9s .3s cubic-bezier(.2,.9,.3,1) both; }
+      @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+    </style>
+  </defs>
+
+  <rect width="1280" height="420" rx="28" fill="url(#sky)"/>
+  <g filter="url(#blur)" class="drift">
+    <rect width="1280" height="420" fill="url(#sun)"/>
+    <path d="M0 330 L180 210 L320 290 L470 170 L640 300 L820 190 L980 280 L1140 200 L1280 260 L1280 420 L0 420 Z" fill="#0b1220" opacity="0.85"/>
+    <path d="M0 380 L220 300 L420 360 L700 290 L940 350 L1280 300 L1280 420 L0 420 Z" fill="#05080f"/>
+  </g>
+  <ellipse class="breathe" cx="640" cy="230" rx="520" ry="210" fill="url(#glow)"/>
+
+  <!-- glass panel -->
+  <g>
+    <rect x="250" y="92" width="780" height="236" rx="34" fill="url(#glass)" stroke="#ffffff" stroke-opacity="0.16"/>
+  </g>
+  <g>
+    <text x="640" y="205" text-anchor="middle" class="title">Nexus</text>
+    <text x="640" y="250" text-anchor="middle" class="sub">Press Guide. Your PC answers like a console.</text>
+  </g>
+  <g>
+    <rect x="452" y="276" width="116" height="32" rx="16" fill="#ffffff" fill-opacity="0.12" stroke="#ffffff" stroke-opacity="0.18"/>
+    <text x="510" y="297" text-anchor="middle" class="chip">Live blur</text>
+    <rect x="582" y="276" width="116" height="32" rx="16" fill="#ffffff" fill-opacity="0.12" stroke="#ffffff" stroke-opacity="0.18"/>
+    <text x="640" y="297" text-anchor="middle" class="chip">HDR aware</text>
+    <rect x="712" y="276" width="116" height="32" rx="16" fill="#ffffff" fill-opacity="0.12" stroke="#ffffff" stroke-opacity="0.18"/>
+    <text x="770" y="297" text-anchor="middle" class="chip">0% idle CPU</text>
+  </g>
+</svg>
