@@ -200,7 +200,7 @@
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <FontIcon Glyph="&#xF093;" FontSize="16" Foreground="#FF6FD36F" />
-                            <TextBlock Text="Select" Style="{StaticResource BodyTextBlockStyle}" FontSize="13" VerticalAlignment="Center" />
+                            <TextBlock x:Name="AHintText" Text="Select" Style="{StaticResource BodyTextBlockStyle}" FontSize="13" VerticalAlignment="Center" />
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <FontIcon Glyph="&#xF094;" FontSize="16" Foreground="#FFFF6B6B" />

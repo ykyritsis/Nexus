@@ -159,6 +159,7 @@ public sealed partial class HomeView : UserControl, INexusView
             double size = i == 0 ? HeroSize : TileSize;
             var tile = MakeTile(games[i], size, first: i == 0);
             tile.Content = await TileArtAsync(games[i], size, ConsoleArt.Cached(games[i].Key));
+            FadeIn((UIElement)tile.Content);
             Tiles.Children.Add(tile);
             built.Add((games[i], tile, size));
         }
@@ -214,6 +215,17 @@ public sealed partial class HomeView : UserControl, INexusView
         FocusTitle.Text = game.Name;
         FocusDetail.Text = (first ? "Continue · " : "") + $"{game.Source} · {GameLibrary.Ago(game.LastPlayed)}";
         if (_moods.TryGetValue(game.Key, out var mood)) _shell.SetAmbient(mood);
+    }
+
+    /// <summary>Art eases in when it arrives instead of popping.</summary>
+    static void FadeIn(UIElement element)
+    {
+        var visual = ElementCompositionPreview.GetElementVisual(element);
+        var fade = visual.Compositor.CreateScalarKeyFrameAnimation();
+        fade.InsertKeyFrame(0f, 0f);
+        fade.InsertKeyFrame(1f, 1f);
+        fade.Duration = TimeSpan.FromMilliseconds(220);
+        visual.StartAnimation("Opacity", fade);
     }
 
     /// <summary>A springy "lift": focused tiles grow from their centre with a little overshoot.</summary>

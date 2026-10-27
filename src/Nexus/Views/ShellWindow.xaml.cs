@@ -143,6 +143,10 @@ public sealed partial class ShellWindow : Window
             return;
         }
         target.UseSystemFocusVisuals = false;
+        if (ContentHost.Content is FrameworkElement page && IsInside(target, page))
+            _lastFocus[page] = new WeakReference<Control>(target);
+        AHintText.Text = ActionFor(target);
+        CentreInList(target);
         _ringTarget = target;
         TrackScroller(target);
         if (target.ActualWidth <= 0) // just created: wait for its layout
@@ -442,6 +446,13 @@ public sealed partial class ShellWindow : Window
         if (sender is Button b && b.Tag is string tab) SelectTab(tab, focus: false);
     }
 
+    /// <summary>The next page slides in from the side you moved towards.</summary>
+    void SlideFrom(int direction)
+    {
+        if (ContentHost.ContentTransitions is { Count: > 0 } t && t[0] is ContentThemeTransition slide)
+            slide.HorizontalOffset = direction >= 0 ? 40 : -40;
+    }
+
     public void SwitchTab(int delta)
     {
         int i = Array.IndexOf(TabOrder, _tab);
@@ -451,6 +462,7 @@ public sealed partial class ShellWindow : Window
 
     public void SelectTab(string tab, bool focus)
     {
+        SlideFrom(Array.IndexOf(TabOrder, tab) - Array.IndexOf(TabOrder, _tab));
         _subPages.Clear();
         _tab = tab;
         foreach (var (name, button) in _tabButtons)
@@ -500,6 +512,7 @@ public sealed partial class ShellWindow : Window
     public void OpenSubPage(FrameworkElement page)
     {
         if (ContentHost.Content is FrameworkElement current) _subPages.Push(current);
+        SlideFrom(+1);
         SetContent(page);
         FocusContent();
     }
@@ -510,6 +523,7 @@ public sealed partial class ShellWindow : Window
         if (_subPages.Count > 0)
         {
             ElementSoundPlayer.Play(ElementSoundKind.GoBack);
+            SlideFrom(-1);
             SetContent(_subPages.Pop());
             FocusContent();
         }
@@ -561,12 +575,43 @@ public sealed partial class ShellWindow : Window
     {
         DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () =>
         {
-            if (ContentHost.Content is DependencyObject page &&
-                FocusManager.FindFirstFocusableElement(page) is Control c)
+            // Like a console: back on a page (or reopening the guide) you land where you left off.
+            if (ContentHost.Content is FrameworkElement page && _lastFocus.TryGetValue(page, out var weak)
+                && weak.TryGetTarget(out var last) && last.IsEnabled && last.Visibility == Visibility.Visible
+                && IsInside(last, page) && last.Focus(FocusState.Keyboard))
+                return;
+            if (ContentHost.Content is DependencyObject p &&
+                FocusManager.FindFirstFocusableElement(p) is Control c)
                 c.Focus(FocusState.Keyboard);
             else
                 _tabButtons[_tab].Focus(FocusState.Keyboard);
         });
+    }
+
+    readonly Dictionary<FrameworkElement, WeakReference<Control>> _lastFocus = new();
+
+    /// <summary>The A prompt says what A will do here.</summary>
+    static string ActionFor(Control target) => target switch
+    {
+        _ when target.Tag as string == "lift" => "Play",
+        ToggleSwitch or Microsoft.UI.Xaml.Controls.Primitives.ToggleButton => "Toggle",
+        ComboBox => "Choose",
+        Slider => "Adjust",
+        _ => "Select",
+    };
+
+    /// <summary>In a sideways list the focused item glides to the middle, so you always see what's next.</summary>
+    static void CentreInList(Control target)
+    {
+        for (DependencyObject? e = VisualTreeHelper.GetParent(target); e != null; e = VisualTreeHelper.GetParent(e))
+        {
+            if (e is ScrollViewer sv)
+            {
+                if (sv.HorizontalScrollMode != ScrollMode.Disabled && sv.ScrollableWidth > 0)
+                    target.StartBringIntoView(new BringIntoViewOptions { AnimationDesired = true, HorizontalAlignmentRatio = 0.5 });
+                return;
+            }
+        }
     }
 
     /// <summary>

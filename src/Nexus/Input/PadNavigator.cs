@@ -89,9 +89,24 @@ public sealed class PadNavigator
         s.Value = Math.Clamp(s.Value + dir * step * 2, s.Minimum, s.Maximum);
     }
 
+    /// <summary>A quick press-in on the selected item, so A feels physical.</summary>
+    static void Pulse(UIElement element)
+    {
+        var visual = Microsoft.UI.Xaml.Hosting.ElementCompositionPreview.GetElementVisual(element);
+        var size = element.ActualSize;
+        visual.CenterPoint = new System.Numerics.Vector3(size.X / 2, size.Y / 2, 0);
+        var now = visual.Scale;
+        var press = visual.Compositor.CreateVector3KeyFrameAnimation();
+        press.InsertKeyFrame(0.35f, now * 0.94f);
+        press.InsertKeyFrame(1f, now);
+        press.Duration = TimeSpan.FromMilliseconds(170);
+        visual.StartAnimation("Scale", press);
+    }
+
     void Activate(DependencyObject? focused)
     {
         if (focused is Control) ElementSoundPlayer.Play(ElementSoundKind.Invoke);
+        if (focused is Control pressed && pressed is not Slider) Pulse(pressed);
         switch (focused)
         {
             case SelectorBarItem item when item.Tag is string tab:
