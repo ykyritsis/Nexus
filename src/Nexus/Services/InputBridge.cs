@@ -55,7 +55,6 @@ public sealed class InputBridge : IDisposable
     Process? _watchdog;
     volatile bool _active;
     volatile int _source = -1;
-    int _misses;
     bool _setUp, _busy;
 
     public string Status { get; private set; } = "";
@@ -68,7 +67,12 @@ public sealed class InputBridge : IDisposable
 
     public static string? Cli => CliPaths.FirstOrDefault(File.Exists);
     public static bool DriversInstalled => Cli != null && ServiceExists("ViGEmBus");
-    public bool Ready => DriversInstalled && _setUp;
+    public bool Ready => DriversInstalled && _setUp && _canRestart;
+    bool _canRestart;
+
+    // Elevated task (created by Set up) that restarts the hidden controller, so apps that opened it
+    // before hiding switched on (a running game, Steam) must reconnect and then only find the virtual pad.
+    const string RestartTask = @"\Nexus\Restart controller";
 
     public InputBridge(App app, DispatcherQueue ui)
     {
@@ -83,39 +87,49 @@ public sealed class InputBridge : IDisposable
     async Task InitAsync()
     {
         _setUp = DriversInstalled && await Task.Run(EnsureConfigured);
-        // Hiding persists across restarts: if Nexus or the PC went down mid-game, start from visible.
+        _canRestart = _setUp && await Task.Run(() => Run("schtasks.exe", $"/query /tn \"{RestartTask}\""));
+        // Hiding persists across restarts: if Nexus or the PC went down, start from visible.
         if (_setUp) await Task.Run(() => Cloak(false));
         UpdateStatus();
         _poll.Start();
+        await CheckAsync();
     }
 
-    /// <summary>Every 2 s: bridge while a game runs, stop shortly after it ends.</summary>
+    /// <summary>
+    /// Every 5 s: keep the bridge on (games then never get the real controller, from the moment they
+    /// start), except while a game whose anti-cheat refuses virtual controllers is running.
+    /// </summary>
     async Task CheckAsync()
     {
         if (_busy) return;
         // Without the drivers (or set up) there's nothing to do: just look again now and then.
-        _poll.Interval = TimeSpan.FromSeconds(Ready ? 2 : 30);
+        _poll.Interval = TimeSpan.FromSeconds(Ready ? 5 : 30);
         if (!Ready || !_app.Settings.LockGameInput)
         {
             if (_active) await StopAsync("turned off");
             return;
         }
-        if (_app.Shell.IsOpen) return; // the guide is in front: keep whatever state the game had
         _busy = true;
         try
         {
-            var game = await Task.Run(() => NowPlaying.Detect(Native.GetForegroundWindow()));
-            bool blocked = game?.ExePath is { } exe && Blocked.Contains(Path.GetFileNameWithoutExtension(exe));
-            if (game != null && !blocked)
-            {
-                _misses = 0;
-                if (!_active) await StartAsync(game.Game.Name);
-            }
-            else if (_active && (blocked || ++_misses >= 3)) // ~6 s without a game (alt-tab blips don't count)
-                await StopAsync(blocked ? "blocked game" : "game ended");
+            string? blocked = await Task.Run(BlockedRunning);
+            if (blocked is null && !_active) await StartAsync("always on");
+            else if (blocked != null && _active) await StopAsync($"{blocked} refuses virtual controllers");
         }
         catch (Exception ex) { Log.Error("input bridge", ex); }
         finally { _busy = false; }
+    }
+
+    static string? BlockedRunning()
+    {
+        foreach (var name in Blocked)
+        {
+            var found = Process.GetProcessesByName(name);
+            bool any = found.Length > 0;
+            foreach (var p in found) p.Dispose();
+            if (any) return name;
+        }
+        return null;
     }
 
     async Task StartAsync(string game)
@@ -126,7 +140,8 @@ public sealed class InputBridge : IDisposable
             // Hide the real controller first, so the virtual one takes its player slot.
             await Task.Run(() => Cloak(true));
             StartWatchdog();
-            await Task.Delay(400);
+            // Apps that already had it open keep reading it until it restarts and they reconnect.
+            await Task.Run(RestartController);
 
             // Which slots Nexus sees before the virtual pad exists: the real controller keeps its slot
             // here (Nexus is allowed to see it), so the virtual pad is whichever slot appears next.
@@ -142,7 +157,7 @@ public sealed class InputBridge : IDisposable
             _active = true;
             _thread = new Thread(Forward) { IsBackground = true, Name = "Nexus input bridge", Priority = ThreadPriority.Highest };
             _thread.Start();
-            Log.Info($"input bridge on for {game} (virtual pad in slot {slot + 1})");
+            Log.Info($"input bridge on ({game}; virtual pad in slot {slot + 1})");
         }
         catch (Exception ex)
         {
@@ -216,6 +231,8 @@ public sealed class InputBridge : IDisposable
                 if (!FindSource(out var s))
                 {
                     if (lastPacket != uint.MaxValue) { Neutral(pad); lastPacket = uint.MaxValue; }
+                    Thread.Sleep(100); // no controller on: check ten times a second, not a thousand
+                    continue;
                 }
                 else if (s.Packet != lastPacket || locked != lastLocked || clock.ElapsedMilliseconds - lastSend > 100)
                 {
@@ -315,6 +332,14 @@ public sealed class InputBridge : IDisposable
                 foreach ($p in $paths) { & $cli --dev-hide $p }
                 & $cli --cloak-off
                 $log += "controllers marked: $(@($paths).Count)"
+                # Restart task: inline command (no script file a normal process could edit).
+                $restart = "& '$cli' --dev-list | ForEach-Object { if (`$_ -match '--dev-hide `"(.+)`"') { pnputil /restart-device `$matches[1] | Out-Null } }"
+                $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($restart))
+                $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -WindowStyle Hidden -EncodedCommand $encoded"
+                $principal = New-ScheduledTaskPrincipal -UserId ([Security.Principal.WindowsIdentity]::GetCurrent().Name) -LogonType Interactive -RunLevel Highest
+                $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Minutes 1)
+                Register-ScheduledTask -TaskPath '\Nexus\' -TaskName 'Restart controller' -Action $action -Principal $principal -Settings $settings -Force | Out-Null
+                $log += "restart task created"
             } catch { $log += "error: $($_.Exception.Message)" }
             Set-Content -Path '{{result}}' -Value ($log -join '; ')
             """);
@@ -329,10 +354,12 @@ public sealed class InputBridge : IDisposable
         catch (Exception ex) { Log.Warn($"input bridge setup cancelled: {ex.Message}"); return false; }
 
         _setUp = DriversInstalled && await Task.Run(EnsureConfigured);
-        Log.Info($"input bridge setup: {(_setUp && DriversInstalled ? "done" : "failed")} ({(File.Exists(result) ? File.ReadAllText(result).Trim() : "no result")})");
-        if (_setUp) { _app.Settings.LockGameInput = true; _app.Settings.Save(); }
+        _canRestart = _setUp && await Task.Run(() => Run("schtasks.exe", $"/query /tn \"{RestartTask}\""));
+        Log.Info($"input bridge setup: {(Ready ? "done" : "failed")} ({(File.Exists(result) ? File.ReadAllText(result).Trim() : "no result")})");
+        if (Ready) { _app.Settings.LockGameInput = true; _app.Settings.Save(); }
         UpdateStatus();
-        return _setUp;
+        await CheckAsync();
+        return Ready;
     }
 
     /// <summary>
@@ -362,6 +389,27 @@ public sealed class InputBridge : IDisposable
         try { if (_watchdog is { HasExited: false }) _watchdog.Kill(entireProcessTree: true); } catch { }
         _watchdog?.Dispose();
         _watchdog = null;
+    }
+
+    /// <summary>
+    /// Runs the elevated restart task and waits (up to ~6 s) for the controller to come back, if one
+    /// was connected. A controller that's off needs nothing: it connects fresh, already hidden.
+    /// </summary>
+    void RestartController()
+    {
+        bool hadController = Enumerable.Range(0, 4).Any(slot => slot != _app.Gamepad.IgnoredSlot && GamepadService.TryRead(slot, out _));
+        if (!hadController) return;
+        if (!Run("schtasks.exe", $"/run /tn \"{RestartTask}\"")) { Log.Warn("input bridge: controller restart task missing"); return; }
+        var clock = Stopwatch.StartNew();
+        bool gone = false;
+        while (clock.ElapsedMilliseconds < 6000)
+        {
+            bool present = Enumerable.Range(0, 4).Any(slot => GamepadService.TryRead(slot, out _));
+            if (!present) gone = true;
+            else if (gone) break; // it went away and is back
+            Thread.Sleep(50);
+        }
+        Log.Info($"input bridge: controller restarted ({(gone ? "reconnected" : "no reconnect seen")} in {clock.ElapsedMilliseconds} ms)");
     }
 
     /// <summary>Switches hiding on or off. HidHide accepts this from a normal (unelevated) process.</summary>
@@ -416,10 +464,10 @@ public sealed class InputBridge : IDisposable
 
     void UpdateStatus()
     {
-        Status = !Ready ? "Not set up: one press installs and sets it up (admin prompt)"
+        Status = !Ready ? (_setUp ? "Press Set up once more to finish (one admin prompt)" : "Not set up: one press installs and sets it up (admin prompt)")
             : !_app.Settings.LockGameInput ? "Off"
             : _active ? "On: games ignore the controller while the guide is open"
-            : "On: starts when a game is running";
+            : "On: paused for a game whose anti-cheat refuses virtual controllers";
         _ui.TryEnqueue(() => StatusChanged?.Invoke());
     }
 
