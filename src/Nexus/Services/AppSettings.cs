@@ -6,6 +6,8 @@ namespace Nexus.Services;
 public sealed class AppSettings
 {
     public bool CompactMode { get; set; }
+    /// <summary>Overlay width as a share of the screen, 0.40 to 0.70 (Compact makes it a little smaller).</summary>
+    public double OverlaySize { get; set; } = 0.5;
     public bool GamepadCursor { get; set; }
     /// <summary>Small pop-ups when a controller connects, disconnects or runs low.</summary>
     public bool ControllerToasts { get; set; } = true;

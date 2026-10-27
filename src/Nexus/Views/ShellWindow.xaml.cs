@@ -492,8 +492,11 @@ public sealed partial class ShellWindow : Window
         double dipW = w / scale, dipH = h / scale;
         Panel.Measure(new Windows.Foundation.Size(Panel.Width, double.PositiveInfinity));
         double designH = Panel.DesiredSize.Height;
-        double share = _app.Settings.CompactMode ? 0.42 : 0.5;
-        PanelBox.Width = Math.Min(dipW * share, dipH * 0.45 * Panel.Width / designH);
+        double size = Math.Clamp(_app.Settings.OverlaySize, 0.4, 0.7);
+        double share = _app.Settings.CompactMode ? size * 0.84 : size;
+        // Never taller than about the same share of the screen's height (wide screens hit this first).
+        double maxHeight = Math.Min(0.85, 0.9 * share);
+        PanelBox.Width = Math.Min(dipW * share, dipH * maxHeight * Panel.Width / designH);
     }
 
     // ---------------- tabs and pages ----------------

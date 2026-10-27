@@ -59,6 +59,8 @@ public sealed partial class MoreSettingsView : UserControl, INexusView
         _refreshing = true;
         StartupSwitch.IsOn = SetupChecks.StartWithWindows;
         ToastSwitch.IsOn = _app.Settings.ControllerToasts;
+        SizeSlider.Value = Math.Round(Math.Clamp(_app.Settings.OverlaySize, 0.4, 0.7) * 100);
+        SizeValue.Text = $"{SizeSlider.Value:0}%";
         _refreshing = false;
     }
 
@@ -82,6 +84,29 @@ public sealed partial class MoreSettingsView : UserControl, INexusView
     {
         if (_refreshing) return;
         SetupChecks.StartWithWindows = StartupSwitch.IsOn;
+    }
+
+    /// <summary>Resizes the overlay live; saved a moment after you stop moving the slider.</summary>
+    void Size_Changed(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+    {
+        SizeValue.Text = $"{e.NewValue:0}%";
+        if (_refreshing) return;
+        _app.Settings.OverlaySize = e.NewValue / 100;
+        _app.Shell.Relayout();
+        _saveSize ??= CreateSaveTimer();
+        _saveSize.Stop();
+        _saveSize.Start();
+    }
+
+    Microsoft.UI.Dispatching.DispatcherQueueTimer? _saveSize;
+
+    Microsoft.UI.Dispatching.DispatcherQueueTimer CreateSaveTimer()
+    {
+        var t = DispatcherQueue.CreateTimer();
+        t.Interval = TimeSpan.FromMilliseconds(600);
+        t.IsRepeating = false;
+        t.Tick += (_, _) => _app.Settings.Save();
+        return t;
     }
 
     void Toasts_Toggled(object sender, RoutedEventArgs e)
