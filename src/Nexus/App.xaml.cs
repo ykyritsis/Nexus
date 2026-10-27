@@ -46,13 +46,20 @@ public partial class App : Application
         Gamepad.GuidePressed += (slot, at) =>
         {
             Log.Info($"Guide pressed on controller {slot + 1}");
-            _ui.TryEnqueue(() => _shell.Toggle(at));
+            _ui.TryEnqueue(() =>
+            {
+                try { _shell.Toggle(at); }
+                catch (Exception ex) { Log.Error("Guide", ex); Log.Warn(ex.ToString()); }
+            });
         };
         // Holding Guide belongs to Windows (Xbox mode's task view), so Nexus only reacts to a press.
+        // Work queued straight onto the dispatcher bypasses Application.UnhandledException: an exception
+        // there ends the process. Controller actions open pages and press buttons, so guard them.
         Gamepad.NavButton += b => _ui.TryEnqueue(() =>
         {
             var clock = System.Diagnostics.Stopwatch.StartNew();
-            _shell.Navigator.Handle(b);
+            try { _shell.Navigator.Handle(b); }
+            catch (Exception ex) { Log.Error($"controller {b}", ex); Log.Warn(ex.ToString()); }
             if (clock.ElapsedMilliseconds > 25) Log.Warn($"slow input: {b} took {clock.ElapsedMilliseconds} ms on {_shell.CurrentView?.Title}");
         });
         _toasts = new ControllerToasts(this, _ui);

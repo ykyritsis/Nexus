@@ -60,7 +60,7 @@ public sealed partial class MoreSettingsView : UserControl, INexusView
         StartupSwitch.IsOn = SetupChecks.StartWithWindows;
         ToastSwitch.IsOn = _app.Settings.ControllerToasts;
         SizeSlider.Value = Math.Round(Math.Clamp(_app.Settings.OverlaySize, 0.4, 0.7) * 100);
-        SizeValue.Text = $"{SizeSlider.Value:0}%";
+        SizeValue.Text = $"{SizeSlider.Value:0}%"; // set here too: the slider event is ignored until loaded
         _refreshing = false;
     }
 
@@ -89,6 +89,9 @@ public sealed partial class MoreSettingsView : UserControl, INexusView
     /// <summary>Resizes the overlay live; saved a moment after you stop moving the slider.</summary>
     void Size_Changed(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
     {
+        // Fires while the page is still being built (setting Minimum moves the value), before
+        // SizeValue exists and before the saved size is loaded: ignore those.
+        if (SizeValue is null || !IsLoaded) return;
         SizeValue.Text = $"{e.NewValue:0}%";
         if (_refreshing) return;
         _app.Settings.OverlaySize = e.NewValue / 100;
