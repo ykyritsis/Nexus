@@ -210,6 +210,10 @@
                             <FontIcon Glyph="&#xF094;" FontSize="16" Foreground="#FFFF6B6B" />
                             <TextBlock Text="Back" Style="{StaticResource BodyTextBlockStyle}" FontSize="13" VerticalAlignment="Center" />
                         </StackPanel>
+                        <StackPanel x:Name="StartHint" Orientation="Horizontal" Spacing="6" Visibility="Collapsed">
+                            <FontIcon Glyph="&#xE700;" FontSize="14" />
+                            <TextBlock x:Name="StartHintText" Style="{StaticResource BodyTextBlockStyle}" FontSize="13" VerticalAlignment="Center" />
+                        </StackPanel>
                         <StackPanel x:Name="XHint" Orientation="Horizontal" Spacing="6" Visibility="Collapsed">
                             <FontIcon Glyph="&#xF096;" FontSize="16" Foreground="#FF5AA9FF" />
                             <TextBlock x:Name="XHintText" Style="{StaticResource BodyTextBlockStyle}" FontSize="13" VerticalAlignment="Center" />

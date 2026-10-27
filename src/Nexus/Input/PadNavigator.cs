@@ -74,6 +74,7 @@ public sealed class PadNavigator
             case Pad.RB: _shell.SwitchTab(+1); break;
             case Pad.X: _shell.CurrentView?.HandleX(focused); break;
             case Pad.Y: _shell.CurrentView?.HandleY(focused); break;
+            case Pad.Start: if (!_shell.OptionsOpen) _shell.CurrentView?.HandleStart(focused); break;
             case Pad.LeftStick: case Pad.RightStick: StickClick(button); break;
         }
     }
@@ -96,7 +97,7 @@ public sealed class PadNavigator
     {
         var options = new FindNextElementOptions
         {
-            SearchRoot = _shell.NavRoot,
+            SearchRoot = _shell.NavScope,
             XYFocusNavigationStrategyOverride = XYFocusNavigationStrategyOverride.Projection,
         };
         if (FocusManager.FindNextElement(direction, options) is Control next)

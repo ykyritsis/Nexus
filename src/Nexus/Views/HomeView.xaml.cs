@@ -36,6 +36,43 @@ public sealed partial class HomeView : UserControl, INexusView
     DispatcherTimer? _clock;
 
     public string Title => "Home";
+    public string? StartHint => NowShowing ? null : "Options";
+
+    readonly Dictionary<Button, GameEntry> _tileGames = new();
+    readonly Dictionary<Button, LauncherEntry> _dockLaunchers = new();
+
+    /// <summary>Start on a game or a launcher: what else you can do with it.</summary>
+    public bool HandleStart(DependencyObject? focused)
+    {
+        if (focused is Button tile && _tileGames.TryGetValue(tile, out var game))
+        {
+            var items = new List<(string, string, Action)> { ("\uE768", "Play", () => OpenAndHide(game.LaunchTarget)) };
+            if (game.Key.StartsWith("steam:"))
+            {
+                var id = game.Key[6..];
+                items.Add(("\uE8F1", "Open in Steam library", () => OpenAndHide($"steam://nav/games/details/{id}")));
+                items.Add(("\uE719", "Store page", () => OpenAndHide($"steam://store/{id}")));
+                items.Add(("\uE734", "Achievements", () => OpenAndHide($"steam://url/SteamIDAchievementsPage/{id}")));
+                items.Add(("\uE7F4", "Steam Big Picture", () => OpenAndHide("steam://open/bigpicture")));
+            }
+            _shell.ShowOptions(game.Name, items, tile);
+            return true;
+        }
+        if (focused is Button dock && _dockLaunchers.TryGetValue(dock, out var launcher))
+        {
+            var items = new List<(string, string, Action)> { ("\uE8A7", $"Open {launcher.Name}", () => OpenAndHide(launcher.Target)) };
+            if (launcher.Name == "Steam")
+            {
+                items.Add(("\uE7F4", "Big Picture mode", () => OpenAndHide("steam://open/bigpicture")));
+                items.Add(("\uE8F1", "Library", () => OpenAndHide("steam://open/games")));
+                items.Add(("\uE716", "Friends", () => OpenAndHide("steam://open/friends")));
+                items.Add(("\uE896", "Downloads", () => OpenAndHide("steam://open/downloads")));
+            }
+            _shell.ShowOptions(launcher.Name, items, dock);
+            return true;
+        }
+        return false;
+    }
     bool NowShowing => _now != null && NowHost.Visibility == Visibility.Visible;
     public string? XHint => NowShowing ? "Screenshot" : null;
     public string? YHint => NowShowing && _now!.CanForceQuit ? "Force quit" : null;
@@ -155,6 +192,7 @@ public sealed partial class HomeView : UserControl, INexusView
         _recentKey = key;
 
         Tiles.Children.Clear();
+        _tileGames.Clear();
         var built = new List<(GameEntry game, Button tile, double size)>();
         for (int i = 0; i < games.Count; i++)
         {
@@ -205,6 +243,7 @@ public sealed partial class HomeView : UserControl, INexusView
         };
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(tile, game.Name);
         tile.Click += (_, _) => OpenAndHide(game.LaunchTarget);
+        _tileGames[tile] = game;
         tile.GotFocus += (_, _) => { Lift(tile, true); Focused(game, first); };
         tile.LostFocus += (_, _) => Lift(tile, false);
         tile.PointerEntered += (_, _) => { Lift(tile, true); Focused(game, first); };
@@ -215,9 +254,28 @@ public sealed partial class HomeView : UserControl, INexusView
     void Focused(GameEntry game, bool first)
     {
         FocusTitle.Text = game.Name;
-        FocusDetail.Text = (first ? "Continue · " : "") + $"{game.Source} · {GameLibrary.Ago(game.LastPlayed)}";
+        string basic = (first ? "Continue · " : "") + $"{game.Source} · {GameLibrary.Ago(game.LastPlayed)}";
+        FocusDetail.Text = basic;
         if (_moods.TryGetValue(game.Key, out var mood)) _shell.SetAmbient(mood);
+        _ = AddLiveInfoAsync(game, basic);
     }
+
+    /// <summary>Who's playing: worldwide right now (Steam's public count) and your friends in it.</summary>
+    async Task AddLiveInfoAsync(GameEntry game, string basic)
+    {
+        var parts = new List<string> { basic };
+        int friends = SteamFriends.PlayingNow(game.Name);
+        if (friends > 0) parts.Add(friends == 1 ? "1 friend playing" : $"{friends} friends playing");
+        if (game.Key.StartsWith("steam:") && await SteamPlayers.CurrentAsync(game.Key[6..]) is int n && n > 0)
+            parts.Add($"{SteamPlayers.Format(n)} playing now");
+        if (FocusTitle.Text == game.Name) FocusDetail.Text = string.Join(" · ", parts);
+    }
+
+    static string? LauncherIcon(string source) => source switch
+    {
+        "Steam" when GameLibrary.SteamPath() is { } steam => Path.Combine(steam, "steam.exe"),
+        _ => null,
+    };
 
     /// <summary>Art eases in when it arrives instead of popping.</summary>
     static void FadeIn(UIElement element)
@@ -299,6 +357,16 @@ public sealed partial class HomeView : UserControl, INexusView
             if (Tiles.Children.Count > 0 && FocusTitle.Text == game.Name && RecentGrid.Visibility == Visibility.Visible) _shell.SetAmbient(mood);
         }
         layers.Children.Add(edge);
+        // Where it's from: the launcher's own icon on a glass badge in the corner.
+        if (LauncherIcon(game.Source) is { } badgeIcon && await Icons.LoadAsync(badgeIcon, 48) is { } badge)
+            layers.Children.Add(new Border
+            {
+                Width = 28, Height = 28, CornerRadius = new CornerRadius(14), Margin = new Thickness(10),
+                HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top,
+                Background = (Brush)Application.Current.Resources["GlassChipFill"],
+                BorderBrush = (Brush)Application.Current.Resources["GlassRim"], BorderThickness = new Thickness(1),
+                Child = new Image { Source = badge, Width = 16, Height = 16 },
+            });
         return layers;
     }
 
@@ -316,6 +384,7 @@ public sealed partial class HomeView : UserControl, INexusView
             else
                 b.Content = new TextBlock { Text = l.Name[..1], FontSize = 16, FontWeight = FontWeights.SemiBold };
             b.Click += (_, _) => OpenAndHide(l.Target);
+            _dockLaunchers[b] = l;
             Dock.Children.Add(b);
         }
     }

@@ -44,6 +44,8 @@ public sealed partial class ShellWindow : Window
     /// <summary>The window that was in front before the overlay opened (usually the game).</summary>
     public IntPtr PreviousForeground => _previousForeground;
     public UIElement NavRoot => Panel;
+    /// <summary>Where the d-pad may move focus: the options menu while it's open, else the panel.</summary>
+    public UIElement NavScope => _menu ?? (UIElement)Panel;
 
     public ShellWindow(App app)
     {
@@ -360,6 +362,7 @@ public sealed partial class ShellWindow : Window
         if (!_visible) return;
         Log.Info($"hidden by {by} (restore focus: {restoreFocus})");
         _visible = false;
+        CloseOptions(restoreFocus: false);
         HideRing();
         _app.Gamepad.Navigating = false;
         Navigator.Reset();
@@ -572,6 +575,7 @@ public sealed partial class ShellWindow : Window
 
     public void SelectTab(string tab, bool focus)
     {
+        CloseOptions(restoreFocus: false);
         SlideFrom(Array.IndexOf(TabOrder, tab) - Array.IndexOf(TabOrder, _tab));
         _subPages.Clear();
         _tab = tab;
@@ -628,8 +632,62 @@ public sealed partial class ShellWindow : Window
     }
 
     /// <summary>B button: leave a sub-page, or close the overlay.</summary>
+    // ---------------- options menu (Start button) ----------------
+
+    Border? _menu;
+    Control? _menuReturn;
+
+    /// <summary>A small glass list of options over the panel; B closes it and focus goes back.</summary>
+    public void ShowOptions(string title, IEnumerable<(string glyph, string text, Action act)> items, Control? returnTo)
+    {
+        CloseOptions(restoreFocus: false);
+        var res = Application.Current.Resources;
+        var list = new StackPanel { Spacing = 6 };
+        list.Children.Add(new TextBlock
+        {
+            Text = title, Style = (Style)res["BodyStrongTextBlockStyle"], FontSize = 15, Margin = new Thickness(6, 2, 6, 6),
+            TextTrimming = TextTrimming.CharacterEllipsis, TextWrapping = TextWrapping.NoWrap,
+        });
+        foreach (var (glyph, text, act) in items)
+        {
+            var b = new Button
+            {
+                Style = (Style)res["GlassButtonStyle"], HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Left,
+                MinHeight = 40, Padding = new Thickness(14, 0, 14, 0),
+                Content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, Children = { new FontIcon { Glyph = glyph, FontSize = 15 }, new TextBlock { Text = text, FontSize = 14 } } },
+            };
+            var run = act;
+            b.Click += (_, _) => { CloseOptions(restoreFocus: false); run(); };
+            list.Children.Add(b);
+        }
+        _menu = new Border
+        {
+            Width = 340, Padding = new Thickness(12), CornerRadius = new CornerRadius(26),
+            HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
+            Background = new SolidColorBrush(Windows.UI.Color.FromArgb(0xE6, 0x16, 0x19, 0x20)),
+            BorderBrush = (Brush)res["GlassRim"], BorderThickness = new Thickness(1), Child = list,
+        };
+        Grid.SetRowSpan(_menu, 3);
+        Panel.Children.Insert(Panel.Children.IndexOf(FocusLayer), _menu); // under the focus ring
+        _menuReturn = returnTo;
+        ElementSoundPlayer.Play(ElementSoundKind.Show);
+        DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () => (list.Children.OfType<Button>().FirstOrDefault())?.Focus(FocusState.Keyboard));
+    }
+
+    public bool OptionsOpen => _menu != null;
+
+    void CloseOptions(bool restoreFocus)
+    {
+        if (_menu is null) return;
+        Panel.Children.Remove(_menu);
+        _menu = null;
+        if (restoreFocus) { ElementSoundPlayer.Play(ElementSoundKind.Hide); _menuReturn?.Focus(FocusState.Keyboard); }
+        _menuReturn = null;
+    }
+
     public void Back()
     {
+        if (_menu != null) { CloseOptions(restoreFocus: true); return; }
         if (_subPages.Count > 0)
         {
             ElementSoundPlayer.Play(ElementSoundKind.GoBack);
@@ -664,6 +722,8 @@ public sealed partial class ShellWindow : Window
         YHintText.Text = view?.YHint ?? "";
         XHint.Visibility = view?.XHint is null ? Visibility.Collapsed : Visibility.Visible;
         XHintText.Text = view?.XHint ?? "";
+        StartHint.Visibility = view?.StartHint is null ? Visibility.Collapsed : Visibility.Visible;
+        StartHintText.Text = view?.StartHint ?? "";
     }
 
     public INexusView? CurrentView => ContentHost.Content as INexusView;

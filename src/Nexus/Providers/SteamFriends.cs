@@ -6,7 +6,13 @@ namespace Nexus.Providers;
 
 public enum Presence { Offline, Online, InGame }
 
-public sealed record Friend(string SteamId64, string Name, string? AvatarUrl, Presence Presence, string Status, string? Game);
+public sealed record Friend(string SteamId64, string Name, string? AvatarUrl, Presence Presence, string Status, string? Game,
+    string? GameAppId = null, string? RecentGame = null, string? RecentAppId = null, string? RecentHours = null,
+    string? GameArt = null, string? RecentArt = null)
+{
+    /// <summary>Steam's wide header art for a game (the CDN path every app has).</summary>
+    public static string HeaderArt(string appId) => $"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appId}/header.jpg";
+}
 
 /// <summary>
 /// Steam friends without an API key. The list (names, avatar hashes) comes from Steam's local
@@ -19,6 +25,9 @@ public static class SteamFriends
     static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(6) };
     static readonly Dictionary<string, (DateTime at, Presence presence, string status, string? game)> StatusCache = new();
     static readonly SemaphoreSlim Throttle = new(6);
+
+    readonly record struct Extra(string? GameAppId, string? RecentGame, string? RecentAppId, string? RecentHours, string? GameArt, string? RecentArt);
+    static readonly Dictionary<string, Extra> Extras = new();
 
     /// <summary>Friends from the most recently used Steam account on this PC (not including you).</summary>
     public static List<(string id64, string name, string? avatar)> List()
@@ -76,7 +85,9 @@ public static class SteamFriends
         var tasks = people.Take(max).Select(async p =>
         {
             var (presence, status, game) = await StatusAsync(p.id64);
-            return new Friend(p.id64, p.name, p.avatar, presence, status, game);
+            Extra extra;
+            lock (StatusCache) Extras.TryGetValue(p.id64, out extra);
+            return new Friend(p.id64, p.name, p.avatar, presence, status, game, extra.GameAppId, extra.RecentGame, extra.RecentAppId, extra.RecentHours, extra.GameArt, extra.RecentArt);
         });
         var friends = (await Task.WhenAll(tasks)).ToList();
         return friends.OrderByDescending(f => f.Presence)
@@ -104,7 +115,18 @@ public static class SteamFriends
                 Presence.Online => "Online",
                 _ => message.StartsWith("Last Online") ? message.Replace("Last Online", "Last online") : "Offline",
             };
-            lock (StatusCache) StatusCache[id64] = (DateTime.UtcNow, presence, status, game);
+            // What they're playing (app id for art) and their most-played game of the last two weeks.
+            static string? AppId(string? link) => link is null ? null : Regex.Match(link, @"/app/(\d+)") is { Success: true } m ? m.Groups[1].Value : null;
+            var recent = root?.Element("mostPlayedGames")?.Element("mostPlayedGame");
+            var inGame = root?.Element("inGameInfo");
+            var extra = new Extra(
+                AppId(inGame?.Element("gameLink")?.Value),
+                recent?.Element("gameName")?.Value,
+                AppId(recent?.Element("gameLink")?.Value),
+                recent?.Element("hoursPlayed")?.Value,
+                inGame?.Element("gameLogo")?.Value,      // Steam's exact art link (newer apps use hashed paths)
+                recent?.Element("gameLogo")?.Value);
+            lock (StatusCache) { StatusCache[id64] = (DateTime.UtcNow, presence, status, game); Extras[id64] = extra; }
             return (presence, status, game);
         }
         catch
@@ -112,6 +134,14 @@ public static class SteamFriends
             return (Presence.Offline, "Offline", null);
         }
         finally { Throttle.Release(); }
+    }
+
+    /// <summary>Friends known (from the last status fetch) to be in a game right now.</summary>
+    public static int PlayingNow(string gameName)
+    {
+        lock (StatusCache)
+            return StatusCache.Values.Count(s => s.presence == Presence.InGame && s.game != null
+                && (s.game.Equals(gameName, StringComparison.OrdinalIgnoreCase) || TitleMatch.BaseTitle(s.game).Equals(TitleMatch.BaseTitle(gameName), StringComparison.OrdinalIgnoreCase)));
     }
 
     public static void Chat(string id64) => Launch.Open($"steam://friends/message/{id64}");

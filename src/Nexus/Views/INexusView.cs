@@ -24,4 +24,10 @@ public interface INexusView
 
     /// <summary>Label for the X hint, or null to hide it.</summary>
     string? XHint => null;
+
+    /// <summary>Start (Menu) button on the focused element: options. Return true if handled.</summary>
+    bool HandleStart(DependencyObject? focused) => false;
+
+    /// <summary>Label for the Start hint, or null to hide it.</summary>
+    string? StartHint => null;
 }

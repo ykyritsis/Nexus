@@ -86,6 +86,10 @@ public sealed class SocialView : UserControl, INexusView
         _shell.EnsureFocus(_cards.Children.FirstOrDefault() as Control);
     }
 
+    /// <summary>
+    /// A friend: avatar beside name and status. In a game, the card is that game's art (darkened so
+    /// text reads); otherwise a strip shows their most-played game of the last two weeks.
+    /// </summary>
     Button Card(Friend f)
     {
         var dot = f.Presence switch
@@ -96,28 +100,76 @@ public sealed class SocialView : UserControl, INexusView
         };
         var avatar = new Border
         {
-            Width = 56, Height = 56, CornerRadius = new CornerRadius(28), HorizontalAlignment = HorizontalAlignment.Center,
+            Width = 46, Height = 46, CornerRadius = new CornerRadius(23), VerticalAlignment = VerticalAlignment.Center,
             BorderBrush = new SolidColorBrush(dot), BorderThickness = new Thickness(2.5),
             Background = f.AvatarUrl is null ? (Brush)Res["IconCircleBrush"]
-                : new ImageBrush { ImageSource = new BitmapImage(new Uri(f.AvatarUrl)) { DecodePixelWidth = 112 }, Stretch = Stretch.UniformToFill },
-            Opacity = f.Presence == Presence.Offline ? 0.55 : 1,
+                : new ImageBrush { ImageSource = new BitmapImage(new Uri(f.AvatarUrl)) { DecodePixelWidth = 92 }, Stretch = Stretch.UniformToFill },
+            Opacity = f.Presence == Presence.Offline ? 0.6 : 1,
         };
-        var name = new TextBlock
-        {
-            Text = f.Name, Style = (Style)Res["BodyStrongTextBlockStyle"], FontSize = 13, TextWrapping = TextWrapping.NoWrap, TextTrimming = TextTrimming.CharacterEllipsis,
-            HorizontalAlignment = HorizontalAlignment.Center, MaxWidth = 104,
-        };
+        var name = new TextBlock { Text = f.Name, Style = (Style)Res["BodyStrongTextBlockStyle"], FontSize = 14, TextWrapping = TextWrapping.NoWrap, TextTrimming = TextTrimming.CharacterEllipsis };
         var status = new TextBlock
         {
-            Text = f.Status, Style = (Style)Res["CaptionTextBlockStyle"], FontSize = 11, TextTrimming = TextTrimming.CharacterEllipsis,
-            TextAlignment = TextAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center, MaxWidth = 104,
+            Text = f.Status, Style = (Style)Res["CaptionTextBlockStyle"], FontSize = 12, TextTrimming = TextTrimming.CharacterEllipsis, TextWrapping = TextWrapping.NoWrap,
             Foreground = f.Presence == Presence.InGame ? new SolidColorBrush(dot) : (Brush)Res["SubtleTextBrush"],
         };
+        var top = new Grid { ColumnSpacing = 10 };
+        top.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        top.ColumnDefinitions.Add(new ColumnDefinition());
+        var who = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Children = { name, status } };
+        Grid.SetColumn(who, 1);
+        top.Children.Add(avatar);
+        top.Children.Add(who);
+
+        var body = new Grid { RowSpacing = 8 };
+        body.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        body.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        body.Children.Add(top);
+
+        var layers = new Grid();
+        if (f.Presence == Presence.InGame && f.GameAppId is { } playing)
+        {
+            // In a game: its art fills the card.
+            layers.Children.Add(new Border { CornerRadius = new CornerRadius(20), Background = new ImageBrush { ImageSource = new BitmapImage(new Uri(f.GameArt ?? Friend.HeaderArt(playing))) { DecodePixelWidth = 460 }, Stretch = Stretch.UniformToFill } });
+            var shade = new LinearGradientBrush { StartPoint = new(0, 0), EndPoint = new(1, 0) };
+            shade.GradientStops.Add(new GradientStop { Color = Color.FromArgb(0xD9, 0x0C, 0x0E, 0x12), Offset = 0 });
+            shade.GradientStops.Add(new GradientStop { Color = Color.FromArgb(0x59, 0x0C, 0x0E, 0x12), Offset = 1 });
+            layers.Children.Add(new Border { CornerRadius = new CornerRadius(20), Background = shade });
+            status.Foreground = new SolidColorBrush(Color.FromArgb(255, 190, 245, 150));
+        }
+        else if (f.RecentGame is { } recent && f.RecentAppId is { } recentId)
+        {
+            // Not in a game: what they've been playing lately.
+            var art = new Border
+            {
+                Width = 64, Height = 30, CornerRadius = new CornerRadius(6),
+                Background = new ImageBrush { ImageSource = new BitmapImage(new Uri(f.RecentArt ?? Friend.HeaderArt(recentId))) { DecodePixelWidth = 128 }, Stretch = Stretch.UniformToFill },
+            };
+            var line = new StackPanel
+            {
+                VerticalAlignment = VerticalAlignment.Center,
+                Children =
+                {
+                    new TextBlock { Text = recent, Style = (Style)Res["CaptionTextBlockStyle"], FontSize = 12, TextTrimming = TextTrimming.CharacterEllipsis, TextWrapping = TextWrapping.NoWrap },
+                    new TextBlock { Text = f.RecentHours is { } h ? $"{h} h past 2 weeks" : "Recently played", Style = (Style)Res["CaptionTextBlockStyle"], FontSize = 11, Foreground = (Brush)Res["SubtleTextBrush"], TextWrapping = TextWrapping.NoWrap },
+                },
+            };
+            var strip = new Grid { ColumnSpacing = 8 };
+            strip.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            strip.ColumnDefinitions.Add(new ColumnDefinition());
+            Grid.SetColumn(line, 1);
+            strip.Children.Add(art);
+            strip.Children.Add(line);
+            Grid.SetRow(strip, 1);
+            body.Children.Add(strip);
+        }
+        body.Margin = new Thickness(12, 10, 12, 10);
+        body.VerticalAlignment = VerticalAlignment.Center;
+        layers.Children.Add(body);
+
         var card = new Button
         {
-            Style = (Style)Res["TileStyle"], Width = 122, Height = 140, CornerRadius = new CornerRadius(22), Padding = new Thickness(8),
-            VerticalAlignment = VerticalAlignment.Center,
-            Content = new StackPanel { Spacing = 5, VerticalAlignment = VerticalAlignment.Center, Children = { avatar, name, status } },
+            Style = (Style)Res["TileStyle"], Width = 220, Height = 112, CornerRadius = new CornerRadius(20), Padding = new Thickness(0),
+            VerticalAlignment = VerticalAlignment.Center, Content = layers,
         };
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(card, $"Chat with {f.Name}, {f.Status}");
         card.Click += (_, _) => { _shell.Hide(restoreFocus: false); SteamFriends.Chat(f.SteamId64); };
