@@ -281,22 +281,25 @@ public sealed class HdrBackdrop : IDisposable
         // Hard borders: edge pixels are clamped instead of fading into transparent black, which left a
         // dark sliver along the top and left edges when shrinking for the blur.
         using var scaled = new ScaleEffect { Source = source, Scale = new Vector2(scale), InterpolationMode = CanvasImageInterpolation.Linear, BorderMode = EffectBorderMode.Hard };
+        // Level to SDR white and clip there *before* blurring, then encode to sRGB and blur that, like a
+        // normal SDR blur. Blurring the raw HDR values first let very bright spots (up to ~10x white)
+        // spread into wide glows: a bloom.
         using var levelled = new ColorMatrixEffect
         {
             Source = scaled,
             ColorMatrix = new Matrix5x4 { M11 = exposure, M22 = exposure, M33 = exposure, M44 = 1 },
-            ClampOutput = false,
+            ClampOutput = true,
         };
-        using var blurred = new GaussianBlurEffect { Source = levelled, BlurAmount = blur ? BlurAmount : 0, BorderMode = EffectBorderMode.Hard, Optimization = EffectOptimization.Speed };
         using var encoded = new ColorManagementEffect
         {
-            Source = blur ? blurred : levelled,
+            Source = levelled,
             SourceColorProfile = new ColorManagementProfile(CanvasColorSpace.ScRgb),
             OutputColorProfile = new ColorManagementProfile(CanvasColorSpace.Srgb),
         };
+        using var blurred = new GaussianBlurEffect { Source = encoded, BlurAmount = blur ? BlurAmount : 0, BorderMode = EffectBorderMode.Hard, Optimization = EffectOptimization.Speed };
         ds.EffectBufferPrecision = CanvasBufferPrecision.Precision16Float; // keep HDR values until the end
         ds.Clear(Windows.UI.Color.FromArgb(255, 0, 0, 0));
-        ds.DrawImage(encoded);
+        ds.DrawImage(blur ? blurred : encoded);
     }
 
     /// <summary>

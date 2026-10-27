@@ -67,12 +67,8 @@ public sealed class InputBridge : IDisposable
 
     public static string? Cli => CliPaths.FirstOrDefault(File.Exists);
     public static bool DriversInstalled => Cli != null && ServiceExists("ViGEmBus");
-    public bool Ready => DriversInstalled && _setUp && _canRestart;
-    bool _canRestart;
+    public bool Ready => DriversInstalled && _setUp;
 
-    // Elevated task (created by Set up) that restarts the hidden controller, so apps that opened it
-    // before hiding switched on (a running game, Steam) must reconnect and then only find the virtual pad.
-    const string RestartTask = @"\Nexus\Restart controller";
 
     public InputBridge(App app, DispatcherQueue ui)
     {
@@ -87,7 +83,6 @@ public sealed class InputBridge : IDisposable
     async Task InitAsync()
     {
         _setUp = DriversInstalled && await Task.Run(EnsureConfigured);
-        _canRestart = _setUp && await Task.Run(() => Run("schtasks.exe", $"/query /tn \"{RestartTask}\""));
         // Hiding persists across restarts: if Nexus or the PC went down, start from visible.
         if (_setUp) await Task.Run(() => Cloak(false));
         UpdateStatus();
@@ -140,8 +135,7 @@ public sealed class InputBridge : IDisposable
             // Hide the real controller first, so the virtual one takes its player slot.
             await Task.Run(() => Cloak(true));
             StartWatchdog();
-            // Apps that already had it open keep reading it until it restarts and they reconnect.
-            await Task.Run(RestartController);
+            await Task.Delay(400);
 
             // Which slots Nexus sees before the virtual pad exists: the real controller keeps its slot
             // here (Nexus is allowed to see it), so the virtual pad is whichever slot appears next.
@@ -335,14 +329,6 @@ public sealed class InputBridge : IDisposable
                 foreach ($p in $paths) { & $cli --dev-hide $p }
                 & $cli --cloak-off
                 $log += "controllers marked: $(@($paths).Count)"
-                # Restart task: inline command (no script file a normal process could edit).
-                $restart = "& '$cli' --dev-list | ForEach-Object { if (`$_ -match '--dev-hide `"(.+)`"') { pnputil /restart-device `$matches[1] | Out-Null } }"
-                $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($restart))
-                $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -WindowStyle Hidden -EncodedCommand $encoded"
-                $principal = New-ScheduledTaskPrincipal -UserId ([Security.Principal.WindowsIdentity]::GetCurrent().Name) -LogonType Interactive -RunLevel Highest
-                $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Minutes 1)
-                Register-ScheduledTask -TaskPath '\Nexus\' -TaskName 'Restart controller' -Action $action -Principal $principal -Settings $settings -Force | Out-Null
-                $log += "restart task created"
             } catch { $log += "error: $($_.Exception.Message)" }
             Set-Content -Path '{{result}}' -Value ($log -join '; ')
             """);
@@ -357,7 +343,6 @@ public sealed class InputBridge : IDisposable
         catch (Exception ex) { Log.Warn($"input bridge setup cancelled: {ex.Message}"); return false; }
 
         _setUp = DriversInstalled && await Task.Run(EnsureConfigured);
-        _canRestart = _setUp && await Task.Run(() => Run("schtasks.exe", $"/query /tn \"{RestartTask}\""));
         Log.Info($"input bridge setup: {(Ready ? "done" : "failed")} ({(File.Exists(result) ? File.ReadAllText(result).Trim() : "no result")})");
         if (Ready) { _app.Settings.LockGameInput = true; _app.Settings.Save(); }
         UpdateStatus();
@@ -392,29 +377,6 @@ public sealed class InputBridge : IDisposable
         try { if (_watchdog is { HasExited: false }) _watchdog.Kill(entireProcessTree: true); } catch { }
         _watchdog?.Dispose();
         _watchdog = null;
-    }
-
-    /// <summary>
-    /// Runs the elevated restart task and waits (up to ~6 s) for the controller to come back, if one
-    /// was connected. A controller that's off needs nothing: it connects fresh, already hidden.
-    /// </summary>
-    void RestartController()
-    {
-        bool hadController = Enumerable.Range(0, 4).Any(slot => slot != _app.Gamepad.IgnoredSlot && GamepadService.TryRead(slot, out _));
-        if (!hadController) return;
-        if (!Run("schtasks.exe", $"/run /tn \"{RestartTask}\"")) { Log.Warn("input bridge: controller restart task missing"); return; }
-        // Bluetooth reconnects can take several seconds; the virtual pad must not be added before the
-        // real controller is back, or the real one would look like the newly appeared (virtual) slot.
-        var clock = Stopwatch.StartNew();
-        bool gone = false, back = false;
-        while (clock.ElapsedMilliseconds < 12000)
-        {
-            bool present = Enumerable.Range(0, 4).Any(slot => GamepadService.TryRead(slot, out _));
-            if (!present) gone = true;
-            else if (gone) { back = true; break; } // it went away and is back
-            Thread.Sleep(50);
-        }
-        Log.Info($"input bridge: controller restart {(back ? "done" : gone ? "timed out (controller not back yet)" : "not seen")} after {clock.ElapsedMilliseconds} ms");
     }
 
     /// <summary>Switches hiding on or off. HidHide accepts this from a normal (unelevated) process.</summary>
@@ -469,7 +431,7 @@ public sealed class InputBridge : IDisposable
 
     void UpdateStatus()
     {
-        Status = !Ready ? (_setUp ? "Press Set up once more to finish (one admin prompt)" : "Not set up: one press installs and sets it up (admin prompt)")
+        Status = !Ready ? "Not set up: one press installs and sets it up (admin prompt)"
             : !_app.Settings.LockGameInput ? "Off"
             : _active ? "On: games ignore the controller while the guide is open"
             : "On: paused for a game whose anti-cheat refuses virtual controllers";
